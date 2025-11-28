@@ -24,9 +24,10 @@ export default function SignupPage() {
       {/* Left Side - Visual Banner */}
       <motion.div
         className="hidden lg:flex flex-1 items-center justify-center p-12 relative overflow-hidden"
-        style={{
-          background: 'linear-gradient(135deg,rgb(48, 218, 207) 0%, #a8e6cf 100%)',
-        }}
+              style={{
+                background: 'linear-gradient(135deg, rgb(88, 35, 212) 0%, #c9a9e9 100%)',
+                boxShadow: '0 0 20px rgba(161, 140, 209, 0.3)',
+              }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
@@ -45,17 +46,23 @@ export default function SignupPage() {
             <p className="text-lg text-white/90 mb-8">
               Start your journey into the future of sustainable dining
             </p>
-            <div className="grid grid-cols-3 gap-4">
-              {['Burgers', 'Cakes', 'Candy'].map((item, index) => (
+<div className="grid grid-cols-3 gap-4">
+              {[
+                { name: 'Burgers', icon: '🍔' },
+                { name: 'Cakes', icon: '🎂' },
+                { name: 'Candy', icon: '🍬' },
+              ].map((item, index) => (
                 <motion.div
-                  key={item}
+                  key={item.name}
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.4 + index * 0.1 }}
                   className="p-4 rounded-2xl bg-white/20 backdrop-blur-sm"
                 >
-                  <div className="text-2xl mb-2">🍔</div>
-                  <div className="text-sm">{item}</div>
+                  {/* Hiển thị icon động từ dữ liệu */}
+                  <div className="text-2xl mb-2">{item.icon}</div>
+                  {/* Hiển thị tên món */}
+                  <div className="text-sm">{item.name}</div>
                 </motion.div>
               ))}
             </div>
@@ -74,8 +81,8 @@ export default function SignupPage() {
             <motion.div
               className="w-14 h-14 rounded-2xl flex items-center justify-center"
               style={{
-                background: 'linear-gradient(135deg, rgb(48, 218, 207) 0%, #a8e6cf 100%)',
-                boxShadow: '0 0 20px rgba(137, 212, 207, 0.3)',
+                background: 'linear-gradient(135deg, rgb(88, 35, 212) 0%, #c9a9e9 100%)',
+                boxShadow: '0 0 20px rgba(161, 140, 209, 0.3)',
               }}
               whileHover={{ scale: 1.05 }}
             >
@@ -172,10 +179,10 @@ export default function SignupPage() {
               <motion.button
                 type="submit"
                 className="w-full py-4 rounded-2xl text-white flex items-center justify-center gap-2 group"
-                style={{
-                  background: 'linear-gradient(135deg, rgb(48, 218, 207) 0%, #a8e6cf 100%)',
-                  boxShadow: '0 8px 32px rgba(137, 212, 207, 0.4)',
-                }}
+              style={{
+                background: 'linear-gradient(135deg, rgb(88, 35, 212) 0%, #c9a9e9 100%)',
+                boxShadow: '0 0 20px rgba(161, 140, 209, 0.3)',
+              }}
                 whileHover={{ scale: 1.02, boxShadow: '0 12px 40px rgba(137, 212, 207, 0.5)' }}
                 whileTap={{ scale: 0.98 }}
               >

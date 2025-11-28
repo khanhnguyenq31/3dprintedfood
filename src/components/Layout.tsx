@@ -136,8 +136,9 @@ export default function Layout() {
       </main>
 
       {/* Footer - Gestalt: Symmetry & Alignment */}
-      <footer className="mt-24 border-t border-border/50 bg-white/50 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+<footer className="mt-24 border-t border-border/50 bg-white/50 backdrop-blur-sm flex flex-col">
+        {/* Phần nội dung chính (giữ nguyên trong khung giữa) */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center gap-3 mb-4">
@@ -180,9 +181,16 @@ export default function Layout() {
               </ul>
             </div>
           </div>
-          <div className="mt-8 pt-8 border-t border-border/50 text-center text-sm text-muted-foreground">
-            © 2025 PrintFood. Future of dining, today.
-          </div>
+        </div>
+
+        {/* Phần Copyright - Full Width Gradient */}
+        <div 
+          className="w-full py-12 text-center text-sm text-white font-medium"
+          style={{
+            background: 'linear-gradient(135deg, rgb(88, 35, 212) 0%, #c9a9e9 100%)',
+          }}
+        >
+          © 2025 PrintFood. Future of dining, today.
         </div>
       </footer>
     </div>
