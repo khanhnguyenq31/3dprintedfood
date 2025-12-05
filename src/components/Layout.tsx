@@ -1,5 +1,5 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, User, Menu, X, Printer, Home, Search, Package, History, CreditCard, Info } from 'lucide-react';
+import { ShoppingCart, User, Menu, X, Printer, Home, Search, Package, History, CreditCard, Info, Heart } from 'lucide-react';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -40,6 +40,7 @@ export default function Layout() {
               <NavLink to="/search" icon={<Search className="w-4 h-4" />}>Search</NavLink>
               <NavLink to="/subscription" icon={<CreditCard className="w-4 h-4" />}>Plans</NavLink>
               <NavLink to="/order-history" icon={<History className="w-4 h-4" />}>Orders</NavLink>
+              <NavLink to="wishlist" icon={<Heart className="w-4 h-4" />}>Wishlist</NavLink>
             </div>
 
             {/* Actions - Gestalt: Common Region */}
@@ -175,8 +176,8 @@ export default function Layout() {
             <div>
               <h4 className="mb-4">Support</h4>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-foreground transition-colors">Help Center</a></li>
-                <li><a href="#" className="hover:text-foreground transition-colors">Contact Us</a></li>
+                <li><a href="/feedback" className="hover:text-foreground transition-colors">Feedback</a></li>
+                <li><a href="/contact" className="hover:text-foreground transition-colors">Contact Us</a></li>
                 <li><Link to="/style-guide" className="hover:text-foreground transition-colors">Style Guide</Link></li>
               </ul>
             </div>

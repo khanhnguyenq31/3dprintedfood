@@ -17,7 +17,10 @@ import OrderTrackingPage from "./components/OrderTrackingPage";
 import OrderHistoryPage from "./components/OrderHistoryPage";
 import SubscriptionPage from "./components/SubscriptionPage";
 import StyleGuidePage from "./components/StyleGuidePage";
-
+import ContactUsPage from "./components/ContactUsPage";
+import FeedbackPage from "./components/FeedbackPage";
+import WishlistPage from "./components/WishlistPage";
+import ProtectedRoute from "./components/ProtectedRoute";
 export default function App() {
   return (
     <Router>
@@ -25,37 +28,70 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/" element={<Layout />}>
-          <Route index element={<HomePage />} />
-          <Route
-            path="/information"
-            element={<InformationPage />}
-          />
+          <Route path="/contact" element={<ContactUsPage />} />
+          <Route path="/feedback" element={<FeedbackPage />} />
+          <Route path="/style-guide" element={<StyleGuidePage />} />
+          <Route path="/information" element={<InformationPage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/product/:id" element={<ProductDetailPage />} />
+          <Route index element={<HomePage />} />
+
+          {/* Các trang cần đăng nhập */}
           <Route
-            path="/product/:id"
-            element={<ProductDetailPage />}
+            path="/wishlist"
+            element={
+              <ProtectedRoute>
+                <WishlistPage />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/configurator/:id"
-            element={<ConfiguratorPage />}
+            element={
+              <ProtectedRoute>
+                <ConfiguratorPage />
+              </ProtectedRoute>
+            }
           />
-          <Route path="/cart" element={<CartPage />} />
-          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route
+            path="/cart"
+            element={
+              <ProtectedRoute>
+                <CartPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/checkout"
+            element={
+              <ProtectedRoute>
+                <CheckoutPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/order-tracking/:orderId"
-            element={<OrderTrackingPage />}
+            element={
+              <ProtectedRoute>
+                <OrderTrackingPage />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/order-history"
-            element={<OrderHistoryPage />}
+            element={
+              <ProtectedRoute>
+                <OrderHistoryPage />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/subscription"
-            element={<SubscriptionPage />}
-          />
-          <Route
-            path="/style-guide"
-            element={<StyleGuidePage />}
+            element={
+              <ProtectedRoute>
+                <SubscriptionPage />
+              </ProtectedRoute>
+            }
           />
         </Route>
       </Routes>

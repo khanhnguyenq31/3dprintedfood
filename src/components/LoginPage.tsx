@@ -8,12 +8,42 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock login - redirect to home
-    navigate('/');
+    setMessage(null);
+    setLoading(true);
+    try {
+      const res = await fetch('https://tmdt251-be-production.up.railway.app/user/login', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.access_token) {
+        setMessage('Login successful!');
+        // Lưu token nếu cần: localStorage.setItem('access_token', data.access_token);
+        setTimeout(() => {
+          navigate('/');
+        }, 1200);
+      } else {
+        setMessage(data.detail || 'Login failed!');
+      }
+    } catch (err) {
+      setMessage('Network error!');
+    }
+    setLoading(false);
+  
+    localStorage.setItem('isLoggedIn', 'true');
   };
 
   return (
@@ -134,6 +164,10 @@ export default function LoginPage() {
                 </a>
               </div>
 
+              {message && (
+                <div className="text-center text-sm mt-2 text-red-500">{message}</div>
+              )}
+
               {/* Submit Button - Large CTA with Glow */}
               <motion.button
                 type="submit"
@@ -144,8 +178,9 @@ export default function LoginPage() {
                 }}
                 whileHover={{ scale: 1.02, boxShadow: '0 12px 40px rgba(161, 140, 209, 0.5)' }}
                 whileTap={{ scale: 0.98 }}
+                disabled={loading}
               >
-                Sign In
+                {loading ? 'Processing...' : 'Sign In'}
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </motion.button>
             </div>

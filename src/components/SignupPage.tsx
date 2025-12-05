@@ -1,22 +1,59 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Mail, Lock, User, Printer, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, User, Printer, ArrowRight, Eye, EyeOff, Phone } from 'lucide-react';
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/');
+    setMessage(null);
+
+    if (formData.password !== formData.confirmPassword) {
+      setMessage('Passwords do not match!');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch('https://tmdt251-be-production.up.railway.app/user/register-user', {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fullname: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          password: formData.password,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMessage(data.message || 'Registration successful!');
+        setTimeout(() => {
+          navigate('/login');
+        }, 1500);
+      } else {
+        setMessage(data.message || 'Registration failed!');
+      }
+    } catch (err) {
+      setMessage('Network error!');
+    }
+    setLoading(false);
   };
 
   return (
@@ -130,6 +167,18 @@ export default function SignupPage() {
                 setFocusedField={setFocusedField}
               />
 
+              <InputField
+                id="phone"
+                label="Phone Number"
+                type="tel"
+                icon={<Phone className="w-5 h-5" />}
+                placeholder="0703315830"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                focusedField={focusedField}
+                setFocusedField={setFocusedField}
+              />
+
               <div>
                 <label htmlFor="password" className="block mb-2 text-sm">
                   Password
@@ -176,6 +225,10 @@ export default function SignupPage() {
                 setFocusedField={setFocusedField}
               />
 
+              {message && (
+                <div className="text-center text-sm mt-2 text-red-500">{message}</div>
+              )}
+
               <motion.button
                 type="submit"
                 className="w-full py-4 rounded-2xl text-white flex items-center justify-center gap-2 group"
@@ -185,8 +238,9 @@ export default function SignupPage() {
               }}
                 whileHover={{ scale: 1.02, boxShadow: '0 12px 40px rgba(137, 212, 207, 0.5)' }}
                 whileTap={{ scale: 0.98 }}
+                disabled={loading}
               >
-                Create Account
+                {loading ? 'Processing...' : 'Create Account'}
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </motion.button>
             </div>
