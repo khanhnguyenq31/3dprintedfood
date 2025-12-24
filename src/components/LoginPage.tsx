@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Mail, Lock, Printer, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { toast } from 'sonner';
+import { api, BASE_URL } from '../lib/api';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -12,50 +14,46 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  const handleGoogleLogin = () => {
+    window.location.href = `${BASE_URL}/user/auth/google/login`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
     setLoading(true);
     try {
-      const res = await fetch('https://tmdt251-be-production.up.railway.app/user/login', {
-        method: 'POST',
-        headers: {
-          'accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
+      const data = await api.post<{ access_token: string }>('/user/login', {
+        email,
+        password,
       });
-      const data = await res.json();
-      if (res.ok && data.access_token) {
-        setMessage('Login successful!');
-        // Lưu token nếu cần: localStorage.setItem('access_token', data.access_token);
+
+      if (data.access_token) {
+        toast.success('Login successful!');
+        localStorage.setItem('access_token', data.access_token);
+        localStorage.setItem('isLoggedIn', 'true'); // Keep for compatibility if used elsewhere
         setTimeout(() => {
           navigate('/');
         }, 1200);
       } else {
-        setMessage(data.detail || 'Login failed!');
+        toast.error('Login failed! No token received.');
       }
-    } catch (err) {
-      setMessage('Network error!');
+    } catch (err: any) {
+      console.error(err);
+
+      toast.error(err.message || 'Login failed!');
     }
     setLoading(false);
-  
-    localStorage.setItem('isLoggedIn', 'true');
   };
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Login Form - Gestalt: Figure/Ground */}
       <div className="flex-1 flex items-center justify-center p-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-md"
         >
-          {/* Logo - Gestalt: Proximity */}
           <Link to="/" className="flex items-center gap-3 mb-8">
             <motion.div
               className="w-14 h-14 rounded-2xl flex items-center justify-center"
@@ -73,7 +71,6 @@ export default function LoginPage() {
             </div>
           </Link>
 
-          {/* Form Card - Gestalt: Common Region */}
           <motion.form
             onSubmit={handleSubmit}
             className="p-8 rounded-3xl"
@@ -86,7 +83,6 @@ export default function LoginPage() {
             transition={{ delay: 0.1 }}
           >
             <div className="space-y-6">
-              {/* Email Field - Gestalt: Proximity & Alignment */}
               <div>
                 <label htmlFor="email" className="block mb-2 text-sm">
                   Email Address
@@ -116,7 +112,6 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Password Field */}
               <div>
                 <label htmlFor="password" className="block mb-2 text-sm">
                   Password
@@ -153,7 +148,6 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Remember & Forgot - Gestalt: Proximity */}
               <div className="flex items-center justify-between text-sm">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" className="rounded" />
@@ -164,11 +158,8 @@ export default function LoginPage() {
                 </a>
               </div>
 
-              {message && (
-                <div className="text-center text-sm mt-2 text-red-500">{message}</div>
-              )}
 
-              {/* Submit Button - Large CTA with Glow */}
+
               <motion.button
                 type="submit"
                 className="w-full py-4 rounded-2xl text-white flex items-center justify-center gap-2 group"
@@ -186,7 +177,27 @@ export default function LoginPage() {
             </div>
           </motion.form>
 
-          {/* Sign Up Link - Gestalt: Proximity */}
+          <div className="mt-8">
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-[#f5f7fa] text-muted-foreground">Or continue with</span>
+              </div>
+            </div>
+
+            <motion.button
+              onClick={handleGoogleLogin}
+              className="w-full py-4 rounded-2xl bg-white border border-gray-200 flex items-center justify-center gap-3 hover:bg-gray-50 transition-colors"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <img src="https://www.google.com/favicon.ico" alt="Google" className="w-6 h-6" />
+              <span className="text-gray-700 font-medium">Continue with Google</span>
+            </motion.button>
+          </div>
+
           <p className="text-center mt-6 text-sm text-muted-foreground">
             Don't have an account?{' '}
             <Link to="/signup" className="text-foreground hover:underline">
@@ -196,7 +207,6 @@ export default function LoginPage() {
         </motion.div>
       </div>
 
-      {/* Right Side - Visual Banner - Gestalt: Figure/Ground & Symmetry */}
       <motion.div
         className="hidden lg:flex flex-1 items-center justify-center p-12 relative overflow-hidden"
         style={{
@@ -206,7 +216,6 @@ export default function LoginPage() {
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
       >
-        {/* Decorative Elements */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-20 w-64 h-64 rounded-full bg-white blur-3xl" />
           <div className="absolute bottom-20 right-20 w-96 h-96 rounded-full bg-white blur-3xl" />

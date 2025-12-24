@@ -3,6 +3,7 @@ import {
   Routes,
   Route,
 } from "react-router-dom";
+import { Toaster } from 'sonner';
 import Layout from "./components/Layout";
 import LoginPage from "./components/LoginPage";
 import SignupPage from "./components/SignupPage";
@@ -24,6 +25,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 export default function App() {
   return (
     <Router>
+      <Toaster richColors position="top-right" />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />

@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, SlidersHorizontal, X, Star } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { api } from '../lib/api';
+import { TagOut, ProductOut } from '../types/api';
 
 export default function SearchPage() {
   const navigate = useNavigate();
@@ -14,19 +16,34 @@ export default function SearchPage() {
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
   const [selectedNutrition, setSelectedNutrition] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [tags, setTags] = useState<TagOut[]>([]);
+
+  const [products, setProducts] = useState<ProductOut[]>([]);
+
+
+  useEffect(() => {
+    api.get<TagOut[]>('/catalog/tags')
+      .then(data => setTags(data))
+      .catch(console.error);
+
+    api.get<ProductOut[]>('/catalog/products')
+      .then(data => {
+        setProducts(data);
+      })
+      .catch(console.error);
+  }, []);
 
   const categories = ['All', 'Burger', 'Cake', 'Candy'];
   const flavors = ['Sweet', 'Savory', 'Spicy', 'Sour', 'Umami'];
   const nutritionFilters = ['High Protein', 'Low Carb', 'Vegan', 'Gluten-Free', 'Keto'];
 
-  const products = [
-    { id: 1, name: 'Classic 3D Burger', category: 'Burger', price: 12.99, rating: 4.8, image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=400' },
-    { id: 2, name: 'Rainbow Layer Cake', category: 'Cake', price: 24.99, rating: 4.9, image: 'https://images.unsplash.com/photo-1635822161882-b82ffacd8278?w=400' },
-    { id: 3, name: 'Gourmet Gummy Mix', category: 'Candy', price: 8.99, rating: 4.7, image: 'https://images.unsplash.com/photo-1720924109595-161e675c792f?w=400' },
-    { id: 4, name: 'Protein Power Burger', category: 'Burger', price: 15.99, rating: 4.9, image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=400' },
-    { id: 5, name: 'Chocolate Dream Cake', category: 'Cake', price: 22.99, rating: 4.8, image: 'https://images.unsplash.com/photo-1635822161882-b82ffacd8278?w=400' },
-    { id: 6, name: 'Fruit Burst Candy', category: 'Candy', price: 7.99, rating: 4.6, image: 'https://images.unsplash.com/photo-1720924109595-161e675c792f?w=400' },
-  ];
+  const [selectedTags, setSelectedTags] = useState<number[]>([]);
+
+  const toggleTag = (tagId: number) => {
+    setSelectedTags(prev =>
+      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
+    );
+  };
 
   const toggleFlavor = (flavor: string) => {
     setSelectedFlavors(prev =>
@@ -43,27 +60,37 @@ export default function SearchPage() {
   const clearFilters = () => {
     setSelectedFlavors([]);
     setSelectedNutrition([]);
+    setSelectedTags([]);
     setSelectedCategory('all');
     setSearchQuery('');
   };
 
   const filteredProducts = products.filter(product => {
-    if (selectedCategory !== 'all' && product.category.toLowerCase() !== selectedCategory.toLowerCase()) {
-      return false;
+    if (selectedCategory !== 'all') {
+      if (product.category?.name.toLowerCase() !== selectedCategory.toLowerCase()) {
+        return false;
+      }
     }
+
     if (searchQuery && !product.name.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
+
+    if (selectedTags.length > 0) {
+      if (!product.tags) return false;
+      const hasMatchingTag = product.tags.some(tagId => selectedTags.includes(tagId));
+      if (!hasMatchingTag) return false;
+    }
+
     return true;
   });
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      {/* Search Header - Gestalt: Proximity */}
       <div className="mb-12">
         <h1 className="text-4xl mb-6">Explore Products</h1>
-        
-        {/* Search Bar - Large, Prominent */}
+
+        {/* Search Bar */}
         <div className="flex gap-4">
           <div className="flex-1 relative">
             <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-muted-foreground" />
@@ -79,7 +106,7 @@ export default function SearchPage() {
               }}
             />
           </div>
-          
+
           <motion.button
             onClick={() => setShowFilters(!showFilters)}
             className="px-6 py-5 rounded-2xl flex items-center gap-3"
@@ -101,7 +128,6 @@ export default function SearchPage() {
         </div>
       </div>
 
-      {/* Filters Panel - Gestalt: Common Region & Proximity */}
       <AnimatePresence>
         {showFilters && (
           <motion.div
@@ -125,7 +151,7 @@ export default function SearchPage() {
               </button>
             </div>
 
-            {/* Category Filter - Gestalt: Similarity */}
+            {/* Category Filter */}
             <div className="mb-6">
               <label className="block mb-3 text-sm">Category</label>
               <div className="flex flex-wrap gap-3">
@@ -155,6 +181,20 @@ export default function SearchPage() {
               </div>
             </div>
 
+            <div className="mb-6">
+              <label className="block mb-3 text-sm">Tags</label>
+              <div className="flex flex-wrap gap-3">
+                {tags.map((tag) => (
+                  <FilterTag
+                    key={tag.id}
+                    label={tag.name}
+                    active={selectedTags.includes(tag.id)}
+                    onClick={() => toggleTag(tag.id)}
+                  />
+                ))}
+              </div>
+            </div>
+
             {/* Nutrition Filter */}
             <div>
               <label className="block mb-3 text-sm">Nutrition</label>
@@ -173,8 +213,7 @@ export default function SearchPage() {
         )}
       </AnimatePresence>
 
-      {/* Active Filters Display - Gestalt: Proximity */}
-      {(selectedFlavors.length > 0 || selectedNutrition.length > 0 || selectedCategory !== 'all') && (
+      {(selectedFlavors.length > 0 || selectedNutrition.length > 0 || selectedCategory !== 'all' || selectedTags.length > 0) && (
         <div className="mb-6 flex flex-wrap gap-2 items-center">
           <span className="text-sm text-muted-foreground">Active filters:</span>
           {selectedCategory !== 'all' && (
@@ -197,6 +236,17 @@ export default function SearchPage() {
               onRemove={() => toggleNutrition(nutrition)}
             />
           ))}
+          {selectedTags.map((tagId) => {
+            const tag = tags.find(t => t.id === tagId);
+            if (!tag) return null;
+            return (
+              <ActiveFilterChip
+                key={tagId}
+                label={tag.name}
+                onRemove={() => toggleTag(tagId)}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -205,7 +255,6 @@ export default function SearchPage() {
         Showing {filteredProducts.length} products
       </div>
 
-      {/* Product Grid - Gestalt: Alignment & Similarity */}
       <motion.div
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
         layout
@@ -229,20 +278,20 @@ export default function SearchPage() {
             >
               <div className="relative h-56 overflow-hidden">
                 <ImageWithFallback
-                  src={product.image}
+                  src={product.image_url || 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=400'} // Fallback if null
                   alt={product.name}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
               <div className="p-6">
-                <div className="text-xs text-muted-foreground mb-2">{product.category}</div>
+                <div className="text-xs text-muted-foreground mb-2">{product.category?.name || 'Uncategorized'}</div>
                 <h4 className="mb-4">{product.name}</h4>
                 <div className="flex items-center justify-between">
                   <div className="text-2xl">${product.price}</div>
                   <div className="flex items-center gap-1">
                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    <span className="text-sm">{product.rating}</span>
+                    <span className="text-sm">4.8</span>
                   </div>
                 </div>
               </div>
@@ -273,7 +322,7 @@ export default function SearchPage() {
   );
 }
 
-// Filter Tag Component - Gestalt: Similarity
+// Filter Tag Component
 function FilterTag({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <motion.button
