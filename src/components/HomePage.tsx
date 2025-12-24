@@ -1,76 +1,159 @@
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Star, Sparkles, TrendingUp } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { useFetchCategories, useFetchProducts, categoriesDictionary, productsDictionary, Category, ProductDisplay } from '../hooks/Product_hooks';
 
-export default function HomePage() {
-  const navigate = useNavigate();
+type CategoryDisplay = {
+  id: string | number;
+  name: string;
+  emoji: string;
+  description: string;
+  gradient: string;
+  image: string;
+};
 
-  const categories = [
-    {
-      id: 'burger',
-      name: 'Burgers',
+const DICTIONARY_CHECK_INTERVAL = 300;
+
+const DEFAULT_CATEGORY_DATA: Record<string, Omit<CategoryDisplay, 'id' | 'name' | 'description'>> = {
+    burger: {
       emoji: '🍔',
-      description: 'Customize protein, veggies & sauce',
       gradient: 'linear-gradient(135deg, rgb(201, 57, 79) 0%, #ffc4d6 100%)',
       image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxnb3VybWV0JTIwYnVyZ2VyfGVufDF8fHx8MTc2NDMyMjA3Mnww&ixlib=rb-4.1.0&q=80&w=1080',
     },
-    {
-      id: 'cake',
-      name: 'Cakes',
+    cake: {
       emoji: '🎂',
-      description: 'Adjust sweetness, size & flavor',
       gradient: 'linear-gradient(135deg, rgb(88, 35, 212) 0%, #c9a9e9 100%)',
-      image: 'https://images.unsplash.com/photo-1635822161882-b82ffacd8278?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb2xvcmZ1bCUyMGNha2V8ZW58MXx8fHwxNzY0MzMwMDcxfDA&ixlib=rb-4.1.0&q=80&w=1080',
+      image: 'https://images.unsplash.com/photo-1635822161882-b82ffacd8278?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxjb2xvcmZ1bCUyMGNha2V8ZW58MXx8fHwxNzY0MzMwMDcxfDA&ixlib=rb-4.1.0&q=80&w=1080',
     },
-    {
-      id: 'candy',
-      name: 'Candy',
+    candy: {
       emoji: '🍬',
-      description: 'Control shape, color & sweetness',
       gradient: 'linear-gradient(135deg, rgb(48, 218, 207) 0%, #a8e6cf 100%)',
-      image: 'https://images.unsplash.com/photo-1720924109595-161e675c792f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjYW5keSUyMHN3ZWV0c3xlbnwxfHx8fDE3NjQzMTExNzJ8MA&ixlib=rb-4.1.0&q=80&w=1080',
+      image: 'https://images.unsplash.com/photo-1720924109595-161e675c792f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxjYW5keSUyMHN3ZWV0c3xlbnwxfHx8fDE3NjQzMTExNzJ8MA&ixlib=rb-4.1.0&q=80&w=1080',
     },
-  ];
+  };
 
-  const recommendedProducts = [
-    {
-      id: 1,
-      name: 'Classic 3D Burger',
-      category: 'Burger',
-      price: 12.99,
-      rating: 4.8,
-      image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxnb3VybWV0JTIwYnVyZ2VyfGVufDF8fHx8MTc2NDMyMjA3Mnww&ixlib=rb-4.1.0&q=80&w=1080',
-      featured: true,
-    },
-    {
-      id: 2,
-      name: 'Rainbow Layer Cake',
-      category: 'Cake',
-      price: 24.99,
-      rating: 4.9,
-      image: 'https://images.unsplash.com/photo-1635822161882-b82ffacd8278?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjb2xvcmZ1bCUyMGNha2V8ZW58MXx8fHwxNzY0MzMwMDcxfDA&ixlib=rb-4.1.0&q=80&w=1080',
-      featured: true,
-    },
-    {
-      id: 3,
-      name: 'Gourmet Gummy Mix',
-      category: 'Candy',
-      price: 8.99,
-      rating: 4.7,
-      image: 'https://images.unsplash.com/photo-1720924109595-161e675c792f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjYW5keSUyMHN3ZWV0c3xlbnwxfHx8fDE3NjQzMTExNzJ8MA&ixlib=rb-4.1.0&q=80&w=1080',
-      featured: false,
-    },
-    {
-      id: 4,
-      name: 'Protein Power Burger',
-      category: 'Burger',
-      price: 15.99,
-      rating: 4.9,
-      image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxnb3VybWV0JTIwYnVyZ2VyfGVufDF8fHx8MTc2NDMyMjA3Mnww&ixlib=rb-4.1.0&q=80&w=1080',
-      featured: false,
-    },
-  ];
+const DEFAULT_FALLBACK: Omit<CategoryDisplay, 'id' | 'name' | 'description'> = {
+  emoji: '🍽️',
+  gradient: 'linear-gradient(135deg, rgb(100, 100, 100) 0%, #cccccc 100%)',
+  image: 'https://images.unsplash.com/photo-1553678324-f84674bd7b24?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmdXR1cmlzdGljJTIwZm9vZCUyMHRlY2hub2xvZ3l8ZW58MXx8fHwxNzY0MzMwMDcxfDA&ixlib=rb-4.1.0&q=80&w=1080',
+};
+
+type RecommendedProduct = ProductDisplay & {
+  featured: boolean;
+};
+
+export default function HomePage() {
+  const navigate = useNavigate();
+  useFetchCategories();
+  useFetchProducts();
+  const [categories, setCategories] = useState<CategoryDisplay[]>([]);
+  const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
+
+  useEffect(() => {
+    // Map API categories to display format
+    const mapCategories = () => {
+      const apiCategories = Array.from(categoriesDictionary.values());
+      
+      if (apiCategories.length === 0) {
+        // If no API data, use hardcoded fallback
+        setCategories([
+          {
+            id: 'burger',
+            name: 'Burgers',
+            description: 'Customize protein, veggies & sauce',
+            ...DEFAULT_CATEGORY_DATA.burger,
+          },
+          {
+            id: 'cake',
+            name: 'Cakes',
+            description: 'Adjust sweetness, size & flavor',
+            ...DEFAULT_CATEGORY_DATA.cake,
+          },
+          {
+            id: 'candy',
+            name: 'Candy',
+            description: 'Control shape, color & sweetness',
+            ...DEFAULT_CATEGORY_DATA.candy,
+          },
+        ]);
+        return;
+      }
+
+      // Map API categories with hardcoded fallbacks
+      const mappedCategories: CategoryDisplay[] = apiCategories.map((apiCategory: Category) => {
+        // Try to match by name (case-insensitive)
+        const nameLower = apiCategory.name.toLowerCase();
+        let fallbackKey = '';
+        
+        if (nameLower.includes('burger') || nameLower.includes('bugger')) {
+          fallbackKey = 'burger';
+        } else if (nameLower.includes('cake')) {
+          fallbackKey = 'cake';
+        } else if (nameLower.includes('candy')) {
+          fallbackKey = 'candy';
+        }
+
+        const fallback = fallbackKey ? DEFAULT_CATEGORY_DATA[fallbackKey] : DEFAULT_FALLBACK;
+
+        return {
+          id: apiCategory.id,
+          name: apiCategory.name || 'Category',
+          description: apiCategory.description || 'Customize your meal',
+          emoji: fallback.emoji,
+          gradient: fallback.gradient,
+          image: fallback.image,
+        };
+      });
+
+      setCategories(mappedCategories);
+    };
+
+    // Initial call
+    mapCategories();
+
+    // Check periodically if dictionary is populated (since fetch is async)
+    const interval = setInterval(() => {
+      if (categoriesDictionary.size > 0) {
+        mapCategories();
+        clearInterval(interval);
+      }
+    }, DICTIONARY_CHECK_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const loadRecommendedProducts = () => {
+      const productsArray = Array.from(productsDictionary.values());
+      
+      if (productsArray.length === 0) {
+        return;
+      }
+
+      const MAX_TRENDING_PRODUCTS = 4;
+      const productsToShow = productsArray.slice(0, MAX_TRENDING_PRODUCTS);
+      
+      const recommended: RecommendedProduct[] = productsToShow.map((product, index) => ({
+        ...product,
+        featured: index < 2,
+      }));
+
+      setRecommendedProducts(recommended);
+    };
+
+    loadRecommendedProducts();
+
+    const interval = setInterval(() => {
+      if (productsDictionary.size > 0) {
+        loadRecommendedProducts();
+        clearInterval(interval);
+      }
+    }, DICTIONARY_CHECK_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div>
@@ -324,7 +407,7 @@ export default function HomePage() {
                   <div className="text-xs text-muted-foreground mb-2">{product.category}</div>
                   <h4 className="mb-3">{product.name}</h4>
                   <div className="flex items-center justify-between">
-                    <div className="text-2xl">${product.price}</div>
+                    <div className="text-2xl">${product.price.toFixed(2)}</div>
                     <div className="flex items-center gap-1">
                       <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                       <span className="text-sm">{product.rating}</span>

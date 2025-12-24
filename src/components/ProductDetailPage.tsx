@@ -1,44 +1,138 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Star, ShoppingCart, Heart, Share2, Sparkles, ChevronRight } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { fetchProductDetail, fetchProductVariants, productDetailsDictionary, productVariantsDictionary, ProductDetailDisplay, Variant } from '../hooks/Product_hooks';
+
+const DICTIONARY_CHECK_INTERVAL = 300;
+
+const DEFAULT_PRODUCT: ProductDetailDisplay = {
+  id: 0,
+  name: 'Product',
+  category: 'Uncategorized',
+  price: 0,
+  rating: 4.5,
+  reviews: 0,
+  image: 'https://images.unsplash.com/photo-1553678324-f84674bd7b24?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmdXR1cmlzdGljJTIwZm9vZCUyMHRlY2hub2xvZ3l8ZW58MXx8fHwxNzY0MzMwMDcxfDA&ixlib=rb-4.1.0&q=80&w=1080',
+  description: 'No description available',
+  highlights: [
+    'Customizable ingredients',
+    'Zero food waste production',
+    'Optimized nutrition',
+    'Fresh ingredients daily',
+  ],
+  nutrition: null,
+};
 
 export default function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
   const [liked, setLiked] = useState(false);
+  const [product, setProduct] = useState<ProductDetailDisplay>(DEFAULT_PRODUCT);
+  const [loading, setLoading] = useState(true);
+  const [variants, setVariants] = useState<Variant[]>([]);
+  const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
 
-  // Mock product data
-  const product = {
-    id: parseInt(id || '1'),
-    name: 'Classic 3D Burger',
-    category: 'Burger',
-    price: 12.99,
-    rating: 4.8,
-    reviews: 234,
-    image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=800',
-    description: 'Experience the future of dining with our Classic 3D Burger. Precision-printed with your choice of protein, vegetables, and sauce ratios. Every bite is perfectly balanced for maximum flavor and nutrition.',
-    highlights: [
-      'Customizable protein ratio',
-      'Zero food waste production',
-      'Optimized macro nutrients',
-      'Fresh ingredients daily',
-    ],
-    nutrition: {
-      calories: 450,
-      protein: 32,
-      carbs: 38,
-      fat: 18,
-      fiber: 6,
-    },
+  const productId = parseInt(id || '0');
+  
+  const displayPrice = selectedVariant ? selectedVariant.price : product.price;
+  const displayStock = selectedVariant ? selectedVariant.stock : 0;
+
+  useEffect(() => {
+    const loadProductDetail = async () => {
+      if (productId === 0) {
+        setLoading(false);
+        return;
+      }
+
+      const cachedProduct = productDetailsDictionary.get(productId);
+      if (cachedProduct) {
+        setProduct(cachedProduct);
+        setLoading(false);
+        return;
+      }
+
+      const fetchedProduct = await fetchProductDetail(productId);
+      if (fetchedProduct) {
+        setProduct(fetchedProduct);
+      }
+      setLoading(false);
+    };
+
+    loadProductDetail();
+
+    const interval = setInterval(() => {
+      const cachedProduct = productDetailsDictionary.get(productId);
+      if (cachedProduct) {
+        setProduct(cachedProduct);
+        clearInterval(interval);
+        setLoading(false);
+      }
+    }, DICTIONARY_CHECK_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, [productId]);
+
+  useEffect(() => {
+    const loadVariants = async () => {
+      if (productId === 0) {
+        return;
+      }
+
+      const cachedVariants = productVariantsDictionary.get(productId);
+      if (cachedVariants && cachedVariants.length > 0) {
+        setVariants(cachedVariants);
+        if (!selectedVariant && cachedVariants.length > 0) {
+          setSelectedVariant(cachedVariants[0]);
+        }
+        return;
+      }
+
+      const fetchedVariants = await fetchProductVariants(productId);
+      if (fetchedVariants && fetchedVariants.length > 0) {
+        setVariants(fetchedVariants);
+        setSelectedVariant(fetchedVariants[0]);
+      }
+    };
+
+    loadVariants();
+
+    const interval = setInterval(() => {
+      const cachedVariants = productVariantsDictionary.get(productId);
+      if (cachedVariants && cachedVariants.length > 0) {
+        setVariants(cachedVariants);
+        if (!selectedVariant && cachedVariants.length > 0) {
+          setSelectedVariant(cachedVariants[0]);
+        }
+        clearInterval(interval);
+      }
+    }, DICTIONARY_CHECK_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, [productId, selectedVariant]);
+
+  const handleVariantSelect = (variant: Variant) => {
+    setSelectedVariant(variant);
+    setQuantity(1);
   };
 
   const addToCart = () => {
-    // Mock add to cart
+    // Mock add to cart - có thể lưu selectedVariant.id vào cart
     navigate('/cart');
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="text-center py-20">
+          <div className="text-4xl mb-4">⏳</div>
+          <h3 className="mb-2">Loading product...</h3>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -131,7 +225,47 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Price */}
-          <div className="text-4xl mb-6">${product.price}</div>
+          <div className="text-4xl mb-2">${displayPrice.toFixed(2)}</div>
+          {selectedVariant && (
+            <div className="text-sm text-muted-foreground mb-6">
+              Stock: {displayStock} available
+            </div>
+          )}
+
+          {/* Variants Selection */}
+          {variants.length > 0 && (
+            <div className="mb-6">
+              <label className="block mb-3 text-sm font-medium">Select Variant</label>
+              <div className="flex flex-wrap gap-3">
+                {variants.map((variant) => (
+                  <motion.button
+                    key={variant.id}
+                    onClick={() => handleVariantSelect(variant)}
+                    className="px-5 py-3 rounded-xl text-sm transition-all"
+                    style={{
+                      background: selectedVariant?.id === variant.id
+                        ? 'linear-gradient(135deg, #a18cd1 0%, #c9a9e9 100%)'
+                        : '#f5f7fa',
+                      color: selectedVariant?.id === variant.id ? '#ffffff' : '#2d3142',
+                      boxShadow: selectedVariant?.id === variant.id
+                        ? '0 4px 16px rgba(161, 140, 209, 0.3)'
+                        : 'inset 2px 2px 4px rgba(163, 177, 198, 0.15)',
+                    }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    disabled={variant.stock === 0}
+                  >
+                    <div className="flex flex-col items-start">
+                      <span>{variant.name}</span>
+                      <span className="text-xs opacity-80">
+                        ${variant.price.toFixed(2)} {variant.stock === 0 && '(Out of stock)'}
+                      </span>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Description */}
           <p className="text-muted-foreground mb-8 leading-relaxed">
@@ -225,41 +359,43 @@ export default function ProductDetailPage() {
         </motion.div>
       </div>
 
-      {/* Nutrition Info - Gestalt: Common Region & Alignment */}
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="p-8 rounded-3xl"
-        style={{
-          background: '#ffffff',
-          boxShadow: '10px 10px 20px rgba(163, 177, 198, 0.2), -10px -10px 20px rgba(255, 255, 255, 0.8)',
-        }}
-      >
-        <h2 className="text-2xl mb-6">Nutrition Information</h2>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
-          {Object.entries(product.nutrition).map(([key, value], index) => (
-            <motion.div
-              key={key}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.5 + index * 0.05 }}
-              className="text-center p-6 rounded-2xl"
-              style={{
-                background: 'linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%)',
-              }}
-            >
-              <div className="text-3xl mb-2">{value}</div>
-              <div className="text-sm text-muted-foreground capitalize">
-                {key === 'carbs' ? 'Carbs' : key}
-              </div>
-              <div className="text-xs text-muted-foreground mt-1">
-                {key === 'calories' ? 'kcal' : 'g'}
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </motion.div>
+      {/* Nutrition Information - Gestalt: Common Region & Alignment */}
+      {product.nutrition && (
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="p-8 rounded-3xl"
+          style={{
+            background: '#ffffff',
+            boxShadow: '10px 10px 20px rgba(163, 177, 198, 0.2), -10px -10px 20px rgba(255, 255, 255, 0.8)',
+          }}
+        >
+          <h2 className="text-2xl mb-6">Nutrition Information</h2>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+            {Object.entries(product.nutrition).map(([key, value], index) => (
+              <motion.div
+                key={key}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.5 + index * 0.05 }}
+                className="text-center p-6 rounded-2xl"
+                style={{
+                  background: 'linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%)',
+                }}
+              >
+                <div className="text-3xl mb-2">{value}</div>
+                <div className="text-sm text-muted-foreground capitalize">
+                  {key === 'carbs' ? 'Carbs' : key}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {key === 'calories' ? 'kcal' : 'g'}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }

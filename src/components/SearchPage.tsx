@@ -1,16 +1,20 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, SlidersHorizontal, X, Star } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { useFetchProducts, productsDictionary, ProductDisplay } from '../hooks/Product_hooks';
+
+const DICTIONARY_CHECK_INTERVAL = 300;
 
 export default function SearchPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const initialCategory = searchParams.get('category') || 'all';
+  useFetchProducts();
+  const [products, setProducts] = useState<ProductDisplay[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState(initialCategory);
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
   const [selectedNutrition, setSelectedNutrition] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -19,14 +23,23 @@ export default function SearchPage() {
   const flavors = ['Sweet', 'Savory', 'Spicy', 'Sour', 'Umami'];
   const nutritionFilters = ['High Protein', 'Low Carb', 'Vegan', 'Gluten-Free', 'Keto'];
 
-  const products = [
-    { id: 1, name: 'Classic 3D Burger', category: 'Burger', price: 12.99, rating: 4.8, image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=400' },
-    { id: 2, name: 'Rainbow Layer Cake', category: 'Cake', price: 24.99, rating: 4.9, image: 'https://images.unsplash.com/photo-1635822161882-b82ffacd8278?w=400' },
-    { id: 3, name: 'Gourmet Gummy Mix', category: 'Candy', price: 8.99, rating: 4.7, image: 'https://images.unsplash.com/photo-1720924109595-161e675c792f?w=400' },
-    { id: 4, name: 'Protein Power Burger', category: 'Burger', price: 15.99, rating: 4.9, image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=400' },
-    { id: 5, name: 'Chocolate Dream Cake', category: 'Cake', price: 22.99, rating: 4.8, image: 'https://images.unsplash.com/photo-1635822161882-b82ffacd8278?w=400' },
-    { id: 6, name: 'Fruit Burst Candy', category: 'Candy', price: 7.99, rating: 4.6, image: 'https://images.unsplash.com/photo-1720924109595-161e675c792f?w=400' },
-  ];
+  useEffect(() => {
+    const loadProducts = () => {
+      const productsArray = Array.from(productsDictionary.values());
+      setProducts(productsArray);
+    };
+
+    loadProducts();
+
+    const interval = setInterval(() => {
+      if (productsDictionary.size > 0) {
+        loadProducts();
+        clearInterval(interval);
+      }
+    }, DICTIONARY_CHECK_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const toggleFlavor = (flavor: string) => {
     setSelectedFlavors(prev =>
@@ -47,10 +60,7 @@ export default function SearchPage() {
     setSearchQuery('');
   };
 
-  const filteredProducts = products.filter(product => {
-    if (selectedCategory !== 'all' && product.category.toLowerCase() !== selectedCategory.toLowerCase()) {
-      return false;
-    }
+  const filteredProducts = products.filter((product) => {
     if (searchQuery && !product.name.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
@@ -239,7 +249,7 @@ export default function SearchPage() {
                 <div className="text-xs text-muted-foreground mb-2">{product.category}</div>
                 <h4 className="mb-4">{product.name}</h4>
                 <div className="flex items-center justify-between">
-                  <div className="text-2xl">${product.price}</div>
+                  <div className="text-2xl">${product.price.toFixed(2)}</div>
                   <div className="flex items-center gap-1">
                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                     <span className="text-sm">{product.rating}</span>
