@@ -1,21 +1,40 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { CreditCard, MapPin, Package, CheckCircle2, Lock } from 'lucide-react';
+import { CreditCard, MapPin, Package, CheckCircle2, Lock, Plus } from 'lucide-react';
+import { api } from '../lib/api';
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [addresses, setAddresses] = useState<any[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | 'new' | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     fullName: '',
+    label: 'Home',
     address: '',
+    province: '',
     city: '',
     zipCode: '',
     cardNumber: '',
     expiryDate: '',
     cvv: '',
   });
+
+  useEffect(() => {
+    // Fetch addresses on mount
+    api.get<any[]>('/users/me/addresses')
+      .then(data => {
+        setAddresses(data);
+        if (data.length > 0) {
+          setSelectedAddressId(data[0].id);
+        } else {
+          setSelectedAddressId('new');
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,9 +59,8 @@ export default function CheckoutPage() {
           ].map((s, index) => (
             <div key={s.num} className="flex items-center">
               <motion.div
-                className={`flex items-center gap-3 px-6 py-3 rounded-2xl ${
-                  step >= s.num ? 'text-white' : 'text-muted-foreground'
-                }`}
+                className={`flex items-center gap-3 px-6 py-3 rounded-2xl ${step >= s.num ? 'text-white' : 'text-muted-foreground'
+                  }`}
                 style={{
                   background: step >= s.num
                     ? 'linear-gradient(135deg, #a18cd1 0%, #c9a9e9 100%)'
@@ -91,41 +109,96 @@ export default function CheckoutPage() {
                   <MapPin className="w-6 h-6" />
                   Delivery Information
                 </h2>
-                <div className="space-y-4">
-                  <InputField
-                    label="Email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="you@example.com"
-                  />
-                  <InputField
-                    label="Full Name"
-                    value={formData.fullName}
-                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    placeholder="John Doe"
-                  />
-                  <InputField
-                    label="Address"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    placeholder="123 Main St, Apt 4B"
-                  />
-                  <div className="grid grid-cols-2 gap-4">
+
+                {/* Address Selection */}
+                {addresses.length > 0 && (
+                  <div className="mb-6 space-y-3">
+                    <label className="block text-sm font-medium mb-2">Select Address</label>
+                    {addresses.map((addr) => (
+                      <div
+                        key={addr.id}
+                        onClick={() => setSelectedAddressId(addr.id)}
+                        className={`p-4 rounded-xl cursor-pointer border-2 transition-all ${selectedAddressId === addr.id
+                          ? 'border-purple-500 bg-purple-50/50'
+                          : 'border-transparent bg-gray-50'
+                          }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedAddressId === addr.id ? 'border-purple-500' : 'border-gray-300'
+                            }`}>
+                            {selectedAddressId === addr.id && <div className="w-2.5 h-2.5 rounded-full bg-purple-500" />}
+                          </div>
+                          <div>
+                            <div className="font-medium">{addr.label}</div>
+                            <div className="text-sm text-gray-500">{addr.street}, {addr.city}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div
+                      onClick={() => setSelectedAddressId('new')}
+                      className={`p-4 rounded-xl cursor-pointer border-2 transition-all flex items-center gap-3 ${selectedAddressId === 'new'
+                        ? 'border-purple-500 bg-purple-50/50'
+                        : 'border-transparent bg-gray-50'
+                        }`}
+                    >
+                      <Plus className="w-5 h-5" />
+                      <span>Add New Address</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* New Address Form */}
+                {(selectedAddressId === 'new' || addresses.length === 0) && (
+                  <div className="space-y-4">
                     <InputField
-                      label="City"
-                      value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      placeholder="New York"
+                      label="Email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="you@example.com"
                     />
                     <InputField
-                      label="ZIP Code"
+                      label="Address Label (e.g. Home, Office)"
+                      value={formData.label}
+                      onChange={(e) => setFormData({ ...formData, label: e.target.value })}
+                      placeholder="Home"
+                    />
+                    <InputField
+                      label="Full Name"
+                      value={formData.fullName}
+                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                      placeholder="John Doe"
+                    />
+                    <InputField
+                      label="Street Address"
+                      value={formData.address}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      placeholder="123 Main St, Apt 4B"
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <InputField
+                        label="Province"
+                        value={formData.province}
+                        onChange={(e) => setFormData({ ...formData, province: e.target.value })}
+                        placeholder="Province"
+                      />
+                      <InputField
+                        label="City"
+                        value={formData.city}
+                        onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                        placeholder="New York"
+                      />
+                    </div>
+                    <InputField
+                      label="Postal Code"
                       value={formData.zipCode}
                       onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
                       placeholder="10001"
                     />
                   </div>
-                </div>
+                )}
               </motion.div>
             )}
 
@@ -214,7 +287,6 @@ export default function CheckoutPage() {
                     background: '#ffffff',
                     boxShadow: '10px 10px 20px rgba(163, 177, 198, 0.2), -10px -10px 20px rgba(255, 255, 255, 0.8)',
                   }}
-                  whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
                   Back
@@ -222,7 +294,37 @@ export default function CheckoutPage() {
               )}
               <motion.button
                 type={step === 3 ? 'submit' : 'button'}
-                onClick={() => step < 3 && setStep(step + 1)}
+                onClick={async () => {
+                  if (step === 1) {
+                    // Create Address if new
+                    if (selectedAddressId === 'new') {
+                      try {
+                        const newAddress = await api.post<any>('/users/me/addresses', {
+                          label: formData.label,
+                          street: formData.address,
+                          city: formData.city,
+                          province: formData.province,
+                          postal_code: formData.zipCode,
+                          is_default: true,
+                        });
+                        setAddresses([...addresses, newAddress]);
+                        setSelectedAddressId(newAddress.id);
+                        setStep(step + 1);
+                      } catch (e) {
+                        alert('Failed to save address: ' + (e as any).message);
+                        return;
+                      }
+                    } else if (selectedAddressId) {
+                      setStep(step + 1);
+                    } else {
+                      alert("Please select or create an address");
+                    }
+                  } else if (step === 2) {
+                    setStep(step + 1);
+                  } else if (step === 3) {
+                    // Let the form submit handler take over
+                  }
+                }}
                 className="flex-1 py-4 rounded-2xl text-white"
                 style={{
                   background: 'linear-gradient(135deg, #a18cd1 0%, #c9a9e9 100%)',
