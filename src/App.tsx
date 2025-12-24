@@ -22,6 +22,7 @@ import ContactUsPage from "./components/ContactUsPage";
 import FeedbackPage from "./components/FeedbackPage";
 import WishlistPage from "./components/WishlistPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AuthCallbackPage from "./components/AuthCallbackPage";
 export default function App() {
   return (
     <Router>
@@ -29,6 +30,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/" element={<Layout />}>
           <Route path="/contact" element={<ContactUsPage />} />
           <Route path="/feedback" element={<FeedbackPage />} />
