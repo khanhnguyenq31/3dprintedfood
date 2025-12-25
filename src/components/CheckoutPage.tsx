@@ -423,7 +423,7 @@ export default function CheckoutPage() {
             </div>
             <div className="flex justify-between text-2xl mb-4">
               <span>Total</span>
-              <span>{total} VND</span>
+              <span>{total.toFixed(0)} VND</span>
             </div>
             <div className="text-sm text-muted-foreground">
               Estimated delivery: 2-3 days
