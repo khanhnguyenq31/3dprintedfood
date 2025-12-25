@@ -9,8 +9,7 @@ import { TagOut, ProductOut } from '../types/api';
 export default function SearchPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  useFetchProducts();
-  const [products, setProducts] = useState<ProductDisplay[]>([]);
+  const [products, setProducts] = useState<ProductOut[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -18,9 +17,6 @@ export default function SearchPage() {
   const [selectedNutrition, setSelectedNutrition] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [tags, setTags] = useState<TagOut[]>([]);
-
-  const [products, setProducts] = useState<ProductOut[]>([]);
-
 
   useEffect(() => {
     api.get<TagOut[]>('/catalog/tags')
@@ -30,6 +26,7 @@ export default function SearchPage() {
     api.get<ProductOut[]>('/catalog/products')
       .then(data => {
         setProducts(data);
+        console.log('Fetched products:', data); // Thêm log để debug
       })
       .catch(console.error);
   }, []);

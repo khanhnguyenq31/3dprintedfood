@@ -125,3 +125,13 @@ export interface OrderItemOut {
     quantity: number;
     custom_configuration?: any | null;
 }
+
+export interface Discount {
+    id: number;
+    code: string;
+    value: number;
+    start_date: string;
+    end_date: string;
+    is_active: boolean;
+    discount_type: 'fixed' | 'percent';
+}

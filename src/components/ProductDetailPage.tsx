@@ -28,6 +28,21 @@ export default function ProductDetailPage() {
       });
   }, [id]);
 
+  // Variant/price logic for products with or without variants
+  const variants = product?.variants || [];
+  const [selectedVariant, setSelectedVariant] = useState(variants[0] || null);
+
+  useEffect(() => {
+    setSelectedVariant(variants[0] || null);
+  }, [product]);
+
+  // Sửa lỗi displayPrice possibly undefined và product possibly null
+  const displayPrice = selectedVariant && selectedVariant.price !== undefined
+    ? selectedVariant.price
+    : (product ? product.price : 0);
+  const displayStock = selectedVariant ? selectedVariant.stock : product?.stock;
+  const handleVariantSelect = (variant) => setSelectedVariant(variant);
+
   const addToWishlist = async () => {
     if (!localStorage.getItem('access_token')) {
       navigate('/login');

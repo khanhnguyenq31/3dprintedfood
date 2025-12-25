@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, Tag } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { useDiscounts } from '../hooks/useDiscounts';
 
 export default function CartPage() {
+  
   const navigate = useNavigate();
   const [cartItems, setCartItems] = useState([
     {
@@ -33,6 +35,11 @@ export default function CartPage() {
     },
   ]);
 
+  const { discounts, loading} = useDiscounts();
+  const [promoInput, setPromoInput] = useState('');
+  const [appliedDiscount, setAppliedDiscount] = useState(null);
+  const [discountError, setDiscountError] = useState('');
+
   const updateQuantity = (id: number, delta: number) => {
     setCartItems(items =>
       items.map(item =>
@@ -50,6 +57,46 @@ export default function CartPage() {
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const tax = subtotal * 0.08;
   const shipping = 4.99;
+
+  function handleApplyDiscount() {
+setDiscountError('');
+  const now = new Date();
+
+  // Kiểm tra nếu chưa tải xong dữ liệu
+  if (!discounts || discounts.length === 0) {
+    setDiscountError('Đang tải dữ liệu mã giảm giá, vui lòng thử lại...');
+    return;
+  }
+
+  const found = discounts.find(d => {
+    const isCodeMatch = d.code.trim().toLowerCase() === promoInput.trim().toLowerCase();
+    const isActive = d.is_active;
+    
+    // Chuyển đổi thời gian từ API về đối tượng Date
+    const start = new Date(d.start_date);
+    const end = new Date(d.end_date);
+
+    return isCodeMatch && isActive && now >= start && now <= end;
+  });
+
+  if (found) {
+    setAppliedDiscount(found);
+    setDiscountError(''); // Xóa lỗi nếu tìm thấy
+  } else {
+    setAppliedDiscount(null);
+    setDiscountError('Mã không hợp lệ hoặc đã hết hạn');
+  }
+  }
+
+  let discountValue = 0;
+  if (appliedDiscount) {
+    if (appliedDiscount.discount_type === 'percent') {
+      discountValue = subtotal * (appliedDiscount.value / 100);
+    } else {
+      discountValue = appliedDiscount.value;
+    }
+  }
+  const totalWithDiscount = Math.max(0, subtotal - discountValue + tax + shipping);
   const total = subtotal + tax + shipping;
 
   return (
@@ -166,6 +213,8 @@ export default function CartPage() {
                 <div className="flex gap-2">
                   <input
                     type="text"
+                    value={promoInput}
+                    onChange={e => setPromoInput(e.target.value)}
                     placeholder="Enter code"
                     className="flex-1 px-4 py-3 rounded-xl border-0 outline-none"
                     style={{
@@ -174,17 +223,25 @@ export default function CartPage() {
                     }}
                   />
                   <motion.button
-                    className="px-4 py-3 rounded-xl"
-                    style={{
-                      background: 'linear-gradient(135deg, #89d4cf 0%, #a8e6cf 100%)',
-                      color: 'white',
-                    }}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <Tag className="w-5 h-5" />
-                  </motion.button>
+  disabled={loading} // Vô hiệu hóa khi đang tải
+  onClick={handleApplyDiscount}
+  className="px-4 py-3 rounded-xl opacity-80 disabled:opacity-50"
+  style={{
+    background: 'linear-gradient(135deg, #89d4cf 0%, #a8e6cf 100%)',
+    color: 'white',
+  }}
+>
+  {loading ? "..." : <Tag className="w-5 h-5" />}
+</motion.button>
                 </div>
+                {appliedDiscount && (
+                  <div className="mt-2 text-green-600 text-sm">
+                    Applied: {appliedDiscount.code} (-{appliedDiscount.discount_type === 'percent' ? `${appliedDiscount.value}%` : `$${appliedDiscount.value}`})
+                  </div>
+                )}
+                {discountError && (
+                  <div className="mt-2 text-red-600 text-sm">{discountError}</div>
+                )}
               </div>
 
               {/* Price Breakdown - Gestalt: Alignment */}
@@ -193,6 +250,12 @@ export default function CartPage() {
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>${subtotal.toFixed(2)}</span>
                 </div>
+                {appliedDiscount && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Discount</span>
+                    <span className="text-green-600">- ${discountValue.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Tax (8%)</span>
                   <span>${tax.toFixed(2)}</span>
@@ -205,7 +268,7 @@ export default function CartPage() {
 
               <div className="flex justify-between mb-8 text-2xl">
                 <span>Total</span>
-                <span>${total.toFixed(2)}</span>
+                <span>${(appliedDiscount ? totalWithDiscount : total).toFixed(2)}</span>
               </div>
 
               <motion.button
