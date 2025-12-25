@@ -48,6 +48,13 @@ export interface ProductOut {
     tags?: number[] | null; // Note: API spec says tags is array of integer IDs, or null
     ingredients?: ProductIngredientOut[];
     variants?: ProductVariantOut[];
+    nutritions?: {
+        calories: number;
+        protein: number;
+        carbs: number;
+        fat: number;
+        fiber: number;
+    }; // Added based on user request, though not in openapi.json explicitly
 }
 
 export interface ProductIngredientOut {
@@ -135,3 +142,48 @@ export interface Discount {
     is_active: boolean;
     discount_type: 'fixed' | 'percent';
 }
+
+export interface CartItemOut {
+    id: number;
+    cart_id: number;
+    product_id: number;
+    quantity: number;
+    custom_configuration?: any | null;
+    product?: ProductOut | null;
+}
+
+export interface CartOut {
+    id: number;
+    user_id: number;
+    items: CartItemOut[];
+}
+
+export interface CartItemCreate {
+    product_id: number;
+    quantity: number;
+    custom_configuration?: any | null;
+}
+
+export interface CartItemUpdate {
+    quantity: number;
+}
+
+export interface PaymentURLRequest {
+    vnp_Version?: string;
+    vnp_Command?: string;
+    vnp_Amount: string; // String as per schema
+    vnp_BankCode?: string | null;
+    vnp_CreateDate?: string;
+    vnp_CurrCode?: string;
+    vnp_IpAddr?: string;
+    vnp_Locale?: string;
+    vnp_OrderInfo: string;
+    vnp_OrderType?: string;
+    vnp_ReturnUrl?: string;
+    vnp_TxnRef: string;
+}
+
+export interface PaymentUrlOut {
+    payment_url: string;
+}
+

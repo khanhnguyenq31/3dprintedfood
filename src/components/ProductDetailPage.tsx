@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { Star, ShoppingCart, Heart, Share2, Sparkles, ChevronRight, MessageSquare } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { api } from '../lib/api';
-import { ProductOut } from '../types/api';
+import { ProductOut, FeedbackOut } from '../types/api';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
@@ -13,13 +13,19 @@ export default function ProductDetailPage() {
   const [liked, setLiked] = useState(false);
   const [product, setProduct] = useState<ProductOut | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reviews, setReviews] = useState<FeedbackOut[]>([]);
 
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    api.get<ProductOut>(`/catalog/products/${id}`)
-      .then((data) => {
-        setProduct(data);
+
+    Promise.all([
+      api.get<ProductOut>(`/catalog/products/${id}`),
+      api.get<FeedbackOut[]>(`/products/${id}/feedback`).catch(() => [])
+    ])
+      .then(([productData, feedbackData]) => {
+        setProduct(productData);
+        setReviews(feedbackData || []);
         setLoading(false);
       })
       .catch(err => {
@@ -41,7 +47,7 @@ export default function ProductDetailPage() {
     ? selectedVariant.price
     : (product ? product.price : 0);
   const displayStock = selectedVariant ? selectedVariant.stock : product?.stock;
-  const handleVariantSelect = (variant) => setSelectedVariant(variant);
+  const handleVariantSelect = (variant: any) => setSelectedVariant(variant);
 
   const addToWishlist = async () => {
     if (!localStorage.getItem('access_token')) {
@@ -58,8 +64,28 @@ export default function ProductDetailPage() {
     }
   };
 
-  const addToCart = () => {
-    navigate('/cart');
+  const addToCart = async () => {
+    if (!localStorage.getItem('access_token')) {
+      navigate('/login');
+      return;
+    }
+    if (!product) return;
+
+    try {
+      await api.post('/cart/items', {
+        product_id: product.id,
+        quantity: quantity,
+        custom_configuration: selectedVariant ? {
+          variant_id: selectedVariant.id,
+          variant_name: selectedVariant.name,
+          price: selectedVariant.price
+        } : null
+      });
+      // Simple feedback, or navigate to cart
+      navigate('/cart');
+    } catch (error) {
+      console.error("Failed to add to cart", error);
+    }
   };
 
   if (loading) return <div className="min-h-screen pt-24 flex justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
@@ -67,9 +93,13 @@ export default function ProductDetailPage() {
 
   // Placeholder data for fields not yet in API
   const highlights = ['Fresh ingredients', '3D Printed', 'Customizable'];
-  const nutrition = { calories: 450, protein: 30, carbs: 45, fat: 15, fiber: 5 };
-  const rating = 4.5;
-  const reviewCount = 120;
+  // Fallback to 0 if no nutrition info (don't show fake 450)
+  const nutrition = product.nutritions || { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 };
+
+  const rating = reviews.length > 0
+    ? reviews.reduce((acc, curr) => acc + curr.rating, 0) / reviews.length
+    : 0;
+  const reviewCount = reviews.length;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -136,7 +166,7 @@ export default function ProductDetailPage() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <div className="text-sm text-muted-foreground mb-2">{product.category_id || 'Category'}</div>
+          {/* <div className="text-sm text-muted-foreground mb-2">{product.category_id || 'Category'}</div> */}
           <h1 className="text-4xl mb-4">{product.name}</h1>
 
           <div className="flex items-center gap-4 mb-6">
@@ -144,7 +174,7 @@ export default function ProductDetailPage() {
               {[1, 2, 3, 4, 5].map((star) => (
                 <Star
                   key={star}
-                  className={`w-5 h-5 ${star <= Math.floor(rating)
+                  className={`w-5 h-5 ${star <= Math.round(rating || 0)
                     ? 'fill-yellow-400 text-yellow-400'
                     : 'text-gray-300'
                     }`}
@@ -152,7 +182,7 @@ export default function ProductDetailPage() {
               ))}
             </div>
             <span className="text-muted-foreground">
-              {rating} ({reviewCount} reviews)
+              {rating > 0 ? rating.toFixed(1) : 'No ratings'} ({reviewCount} reviews)
             </span>
             <button
               onClick={() => navigate(`/feedback?product_id=${product.id}`)}
@@ -164,7 +194,7 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Price */}
-          <div className="text-4xl mb-2">${displayPrice.toFixed(2)}</div>
+          <div className="text-4xl mb-2">${displayPrice}</div>
           {selectedVariant && (
             <div className="text-sm text-muted-foreground mb-6">
               Stock: {displayStock} available
@@ -197,7 +227,7 @@ export default function ProductDetailPage() {
                     <div className="flex flex-col items-start">
                       <span>{variant.name}</span>
                       <span className="text-xs opacity-80">
-                        ${variant.price.toFixed(2)} {variant.stock === 0 && '(Out of stock)'}
+                        ${variant.price} {variant.stock === 0 && '(Out of stock)'}
                       </span>
                     </div>
                   </motion.button>

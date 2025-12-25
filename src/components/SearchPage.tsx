@@ -4,38 +4,44 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Search, SlidersHorizontal, X, Star } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { api } from '../lib/api';
-import { TagOut, ProductOut } from '../types/api';
+import { TagOut, ProductOut, CategoryOut } from '../types/api';
 
 export default function SearchPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const categoryParam = searchParams.get('category'); // Get category from URL
+
   const [products, setProducts] = useState<ProductOut[]>([]);
+  const [categories, setCategories] = useState<CategoryOut[]>([]);
+  const [tags, setTags] = useState<TagOut[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
-  const [selectedNutrition, setSelectedNutrition] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
-  const [tags, setTags] = useState<TagOut[]>([]);
+  const [selectedTags, setSelectedTags] = useState<number[]>([]);
+
+  useEffect(() => {
+    // Initialize category from URL if present
+    if (categoryParam) {
+      setSelectedCategory(categoryParam);
+    }
+  }, [categoryParam]);
 
   useEffect(() => {
     api.get<TagOut[]>('/catalog/tags')
       .then(data => setTags(data))
       .catch(console.error);
 
+    api.get<CategoryOut[]>('/catalog/categories')
+      .then(data => setCategories(data))
+      .catch(console.error);
+
     api.get<ProductOut[]>('/catalog/products')
       .then(data => {
         setProducts(data);
-        console.log('Fetched products:', data); // Thêm log để debug
       })
       .catch(console.error);
   }, []);
-
-  const categories = ['All', 'Burger', 'Cake', 'Candy'];
-  const flavors = ['Sweet', 'Savory', 'Spicy', 'Sour', 'Umami'];
-  const nutritionFilters = ['High Protein', 'Low Carb', 'Vegan', 'Gluten-Free', 'Keto'];
-
-  const [selectedTags, setSelectedTags] = useState<number[]>([]);
 
   const toggleTag = (tagId: number) => {
     setSelectedTags(prev =>
@@ -43,29 +49,22 @@ export default function SearchPage() {
     );
   };
 
-  const toggleFlavor = (flavor: string) => {
-    setSelectedFlavors(prev =>
-      prev.includes(flavor) ? prev.filter(f => f !== flavor) : [...prev, flavor]
-    );
-  };
-
-  const toggleNutrition = (nutrition: string) => {
-    setSelectedNutrition(prev =>
-      prev.includes(nutrition) ? prev.filter(n => n !== nutrition) : [...prev, nutrition]
-    );
-  };
-
   const clearFilters = () => {
-    setSelectedFlavors([]);
-    setSelectedNutrition([]);
     setSelectedTags([]);
     setSelectedCategory('all');
     setSearchQuery('');
   };
 
   const filteredProducts = products.filter(product => {
+    // Filter by Category
     if (selectedCategory !== 'all') {
-      if (product.category?.name.toLowerCase() !== selectedCategory.toLowerCase()) {
+      // Assuming selectedCategory matches category ID (if number) or name (if string)
+      // The homepage links using ID. Let's handle both.
+      // If selectedCategory is a number (stringified), compare with ID.
+      // If it is a name, compare with name.
+      // Strategy: Convert both to string for comparison or check logic.
+      if (product.category_id.toString() !== selectedCategory && product.category?.name.toLowerCase() !== selectedCategory.toLowerCase()) {
+        // Also check if selectedCategory corresponds to category name (homepage uses ID usually, but fallback used fallback names)
         return false;
       }
     }
@@ -153,32 +152,23 @@ export default function SearchPage() {
             <div className="mb-6">
               <label className="block mb-3 text-sm">Category</label>
               <div className="flex flex-wrap gap-3">
+                <FilterTag
+                  label="All"
+                  active={selectedCategory === 'all'}
+                  onClick={() => setSelectedCategory('all')}
+                />
                 {categories.map((category) => (
                   <FilterTag
-                    key={category}
-                    label={category}
-                    active={selectedCategory === category.toLowerCase()}
-                    onClick={() => setSelectedCategory(category.toLowerCase())}
+                    key={category.id}
+                    label={category.name}
+                    active={selectedCategory === category.id.toString() || selectedCategory === category.name}
+                    onClick={() => setSelectedCategory(category.id.toString())}
                   />
                 ))}
               </div>
             </div>
 
-            {/* Flavor Filter */}
-            <div className="mb-6">
-              <label className="block mb-3 text-sm">Flavor Profile</label>
-              <div className="flex flex-wrap gap-3">
-                {flavors.map((flavor) => (
-                  <FilterTag
-                    key={flavor}
-                    label={flavor}
-                    active={selectedFlavors.includes(flavor)}
-                    onClick={() => toggleFlavor(flavor)}
-                  />
-                ))}
-              </div>
-            </div>
-
+            {/* Tags Filter */}
             <div className="mb-6">
               <label className="block mb-3 text-sm">Tags</label>
               <div className="flex flex-wrap gap-3">
@@ -190,50 +180,23 @@ export default function SearchPage() {
                     onClick={() => toggleTag(tag.id)}
                   />
                 ))}
+                {tags.length === 0 && <span className="text-muted-foreground italic">No tags available</span>}
               </div>
             </div>
 
-            {/* Nutrition Filter */}
-            <div>
-              <label className="block mb-3 text-sm">Nutrition</label>
-              <div className="flex flex-wrap gap-3">
-                {nutritionFilters.map((nutrition) => (
-                  <FilterTag
-                    key={nutrition}
-                    label={nutrition}
-                    active={selectedNutrition.includes(nutrition)}
-                    onClick={() => toggleNutrition(nutrition)}
-                  />
-                ))}
-              </div>
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {(selectedFlavors.length > 0 || selectedNutrition.length > 0 || selectedCategory !== 'all' || selectedTags.length > 0) && (
+      {(selectedCategory !== 'all' || selectedTags.length > 0) && (
         <div className="mb-6 flex flex-wrap gap-2 items-center">
           <span className="text-sm text-muted-foreground">Active filters:</span>
           {selectedCategory !== 'all' && (
             <ActiveFilterChip
-              label={selectedCategory}
+              label={categories.find(c => c.id.toString() === selectedCategory)?.name || selectedCategory}
               onRemove={() => setSelectedCategory('all')}
             />
           )}
-          {selectedFlavors.map((flavor) => (
-            <ActiveFilterChip
-              key={flavor}
-              label={flavor}
-              onRemove={() => toggleFlavor(flavor)}
-            />
-          ))}
-          {selectedNutrition.map((nutrition) => (
-            <ActiveFilterChip
-              key={nutrition}
-              label={nutrition}
-              onRemove={() => toggleNutrition(nutrition)}
-            />
-          ))}
           {selectedTags.map((tagId) => {
             const tag = tags.find(t => t.id === tagId);
             if (!tag) return null;
@@ -286,7 +249,7 @@ export default function SearchPage() {
                 <div className="text-xs text-muted-foreground mb-2">{product.category?.name || 'Uncategorized'}</div>
                 <h4 className="mb-4">{product.name}</h4>
                 <div className="flex items-center justify-between">
-                  <div className="text-2xl">${product.price.toFixed(2)}</div>
+                  <div className="text-2xl">{product.price} VND</div>
                   <div className="flex items-center gap-1">
                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                     <span className="text-sm">4.8</span>

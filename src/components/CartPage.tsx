@@ -1,91 +1,99 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, Tag } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useDiscounts } from '../hooks/useDiscounts';
+import { api } from '../lib/api';
+import { CartOut } from '../types/api';
 
 export default function CartPage() {
-  
-  const navigate = useNavigate();
-  const [cartItems, setCartItems] = useState([
-    {
-      id: 1,
-      name: 'Classic 3D Burger',
-      price: 12.99,
-      quantity: 2,
-      image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=200',
-      customizations: ['60% Meat', '30% Veggies', '10% Sauce'],
-    },
-    {
-      id: 2,
-      name: 'Rainbow Layer Cake',
-      price: 24.99,
-      quantity: 1,
-      image: 'https://images.unsplash.com/photo-1635822161882-b82ffacd8278?w=200',
-      customizations: ['Medium Size', 'Extra Sweet'],
-    },
-    {
-      id: 3,
-      name: 'Gourmet Gummy Mix',
-      price: 8.99,
-      quantity: 3,
-      image: 'https://images.unsplash.com/photo-1720924109595-161e675c792f?w=200',
-      customizations: ['Assorted Flavors', 'Sugar-Free'],
-    },
-  ]);
 
-  const { discounts, loading} = useDiscounts();
+  const navigate = useNavigate();
+  const [cart, setCart] = useState<CartOut | null>(null);
+  const [loadingCart, setLoadingCart] = useState(true);
+
+  const { discounts, loading: loadingDiscounts } = useDiscounts();
   const [promoInput, setPromoInput] = useState('');
-  const [appliedDiscount, setAppliedDiscount] = useState(null);
+  const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
   const [discountError, setDiscountError] = useState('');
 
-  const updateQuantity = (id: number, delta: number) => {
-    setCartItems(items =>
-      items.map(item =>
-        item.id === id
-          ? { ...item, quantity: Math.max(1, item.quantity + delta) }
-          : item
-      )
-    );
+  useEffect(() => {
+    fetchCart();
+  }, []);
+
+  const fetchCart = () => {
+    setLoadingCart(true);
+    api.get<CartOut>('/cart')
+      .then(data => {
+        setCart(data);
+        setLoadingCart(false);
+      })
+      .catch(err => {
+        console.error("Error fetching cart", err);
+        setLoadingCart(false);
+      });
   };
 
-  const removeItem = (id: number) => {
-    setCartItems(items => items.filter(item => item.id !== id));
+  const updateQuantity = async (itemId: number, delta: number) => {
+    const item = cart?.items.find(i => i.id === itemId);
+    if (!item) return;
+    const newQty = item.quantity + delta;
+    if (newQty < 1) return;
+
+    // Optimistic update could be done here, but for safety lets wait for API
+    try {
+      await api.put(`/cart/items/${itemId}`, { quantity: newQty });
+      fetchCart();
+    } catch (error) {
+      console.error("Update quantity failed", error);
+    }
   };
 
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const removeItem = async (itemId: number) => {
+    try {
+      await api.delete(`/cart/items/${itemId}`);
+      fetchCart();
+    } catch (error) {
+      console.error("Remove item failed", error);
+    }
+  };
+
+  const cartItems = cart?.items || [];
+
+  const subtotal = cartItems.reduce((sum, item) => {
+    // Use price from custom_configuration if available (for variants), else product price
+    const price = item.custom_configuration?.price || item.product?.price || 0;
+    return sum + price * item.quantity;
+  }, 0);
+
   const tax = subtotal * 0.08;
   const shipping = 4.99;
 
   function handleApplyDiscount() {
-setDiscountError('');
-  const now = new Date();
+    setDiscountError('');
+    const now = new Date();
 
-  // Kiểm tra nếu chưa tải xong dữ liệu
-  if (!discounts || discounts.length === 0) {
-    setDiscountError('Đang tải dữ liệu mã giảm giá, vui lòng thử lại...');
-    return;
-  }
+    if (!discounts || discounts.length === 0) {
+      setDiscountError('Đang tải dữ liệu mã giảm giá, vui lòng thử lại...');
+      return;
+    }
 
-  const found = discounts.find(d => {
-    const isCodeMatch = d.code.trim().toLowerCase() === promoInput.trim().toLowerCase();
-    const isActive = d.is_active;
-    
-    // Chuyển đổi thời gian từ API về đối tượng Date
-    const start = new Date(d.start_date);
-    const end = new Date(d.end_date);
+    const found = discounts.find(d => {
+      const isCodeMatch = d.code.trim().toLowerCase() === promoInput.trim().toLowerCase();
+      const isActive = d.is_active;
+      const start = new Date(d.start_date);
+      const end = new Date(d.end_date);
+      return isCodeMatch && isActive && now >= start && now <= end;
+    });
 
-    return isCodeMatch && isActive && now >= start && now <= end;
-  });
-
-  if (found) {
-    setAppliedDiscount(found);
-    setDiscountError(''); // Xóa lỗi nếu tìm thấy
-  } else {
-    setAppliedDiscount(null);
-    setDiscountError('Mã không hợp lệ hoặc đã hết hạn');
-  }
+    if (found) {
+      setAppliedDiscount(found);
+      setDiscountError('');
+    } else {
+      setAppliedDiscount(null);
+      setDiscountError('Mã không hợp lệ hoặc đã hết hạn');
+    }
   }
 
   let discountValue = 0;
@@ -98,6 +106,8 @@ setDiscountError('');
   }
   const totalWithDiscount = Math.max(0, subtotal - discountValue + tax + shipping);
   const total = subtotal + tax + shipping;
+
+  if (loadingCart) return <div className="min-h-screen pt-24 flex justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -114,84 +124,90 @@ setDiscountError('');
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Cart Items - Gestalt: Common Region */}
           <div className="lg:col-span-2 space-y-4">
-            {cartItems.map((item, index) => (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="p-6 rounded-3xl"
-                style={{
-                  background: '#ffffff',
-                  boxShadow: '10px 10px 20px rgba(163, 177, 198, 0.2), -10px -10px 20px rgba(255, 255, 255, 0.8)',
-                }}
-              >
-                <div className="flex gap-6">
-                  {/* Image */}
-                  <div className="flex-shrink-0">
-                    <div className="w-24 h-24 rounded-2xl overflow-hidden">
-                      <ImageWithFallback
-                        src={item.image}
-                        alt={item.name}
-                        className="w-full h-full object-cover"
-                      />
+            {cartItems.map((item, index) => {
+              const price = item.custom_configuration?.price || item.product?.price || 0;
+              return (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className="p-6 rounded-3xl"
+                  style={{
+                    background: '#ffffff',
+                    boxShadow: '10px 10px 20px rgba(163, 177, 198, 0.2), -10px -10px 20px rgba(255, 255, 255, 0.8)',
+                  }}
+                >
+                  <div className="flex gap-6">
+                    {/* Image */}
+                    <div className="flex-shrink-0">
+                      <div className="w-24 h-24 rounded-2xl overflow-hidden">
+                        <ImageWithFallback
+                          src={item.product?.image_url || 'https://via.placeholder.com/150'}
+                          alt={item.product?.name || 'Product'}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Info - Gestalt: Proximity & Alignment */}
-                  <div className="flex-1">
-                    <h3 className="mb-2">{item.name}</h3>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {item.customizations.map((custom, i) => (
-                        <span
-                          key={i}
-                          className="text-xs px-3 py-1 rounded-full"
-                          style={{
-                            background: 'linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%)',
-                          }}
+                    {/* Info - Gestalt: Proximity & Alignment */}
+                    <div className="flex-1">
+                      <h3 className="mb-2 font-medium">{item.product?.name}</h3>
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {item.custom_configuration && Object.entries(item.custom_configuration).map(([k, v], i) => {
+                          if (k === 'price') return null; // Don't show price int config
+                          return (
+                            <span
+                              key={i}
+                              className="text-xs px-3 py-1 rounded-full text-muted-foreground border"
+                              style={{
+                                background: '#f5f7fa',
+                              }}
+                            >
+                              {k === 'variant_name' ? String(v) : `${k}: ${v}`}
+                            </span>
+                          );
+                        })}
+                      </div>
+                      <div className="text-2xl">{price}</div>
+                    </div>
+
+                    {/* Quantity Controls - Gestalt: Proximity */}
+                    <div className="flex flex-col items-end justify-between">
+                      <motion.button
+                        onClick={() => removeItem(item.id)}
+                        className="p-2 rounded-xl text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </motion.button>
+
+                      <div
+                        className="flex items-center gap-3 px-4 py-2 rounded-xl"
+                        style={{
+                          background: 'linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%)',
+                        }}
+                      >
+                        <button
+                          onClick={() => updateQuantity(item.id, -1)}
+                          className="w-6 h-6 rounded-lg hover:bg-white transition-colors flex items-center justify-center"
                         >
-                          {custom}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="text-2xl">${item.price}</div>
-                  </div>
-
-                  {/* Quantity Controls - Gestalt: Proximity */}
-                  <div className="flex flex-col items-end justify-between">
-                    <motion.button
-                      onClick={() => removeItem(item.id)}
-                      className="p-2 rounded-xl text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </motion.button>
-
-                    <div
-                      className="flex items-center gap-3 px-4 py-2 rounded-xl"
-                      style={{
-                        background: 'linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%)',
-                      }}
-                    >
-                      <button
-                        onClick={() => updateQuantity(item.id, -1)}
-                        className="w-6 h-6 rounded-lg hover:bg-white transition-colors flex items-center justify-center"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                      <span className="w-8 text-center">{item.quantity}</span>
-                      <button
-                        onClick={() => updateQuantity(item.id, 1)}
-                        className="w-6 h-6 rounded-lg hover:bg-white transition-colors flex items-center justify-center"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
+                          <Minus className="w-4 h-4" />
+                        </button>
+                        <span className="w-8 text-center">{item.quantity}</span>
+                        <button
+                          onClick={() => updateQuantity(item.id, 1)}
+                          className="w-6 h-6 rounded-lg hover:bg-white transition-colors flex items-center justify-center"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              )
+            })}
           </div>
 
           {/* Order Summary - Gestalt: Common Region & Alignment */}
@@ -223,20 +239,20 @@ setDiscountError('');
                     }}
                   />
                   <motion.button
-  disabled={loading} // Vô hiệu hóa khi đang tải
-  onClick={handleApplyDiscount}
-  className="px-4 py-3 rounded-xl opacity-80 disabled:opacity-50"
-  style={{
-    background: 'linear-gradient(135deg, #89d4cf 0%, #a8e6cf 100%)',
-    color: 'white',
-  }}
->
-  {loading ? "..." : <Tag className="w-5 h-5" />}
-</motion.button>
+                    disabled={loadingDiscounts}
+                    onClick={handleApplyDiscount}
+                    className="px-4 py-3 rounded-xl opacity-80 disabled:opacity-50"
+                    style={{
+                      background: 'linear-gradient(135deg, #89d4cf 0%, #a8e6cf 100%)',
+                      color: 'white',
+                    }}
+                  >
+                    {loadingDiscounts ? "..." : <Tag className="w-5 h-5" />}
+                  </motion.button>
                 </div>
                 {appliedDiscount && (
                   <div className="mt-2 text-green-600 text-sm">
-                    Applied: {appliedDiscount.code} (-{appliedDiscount.discount_type === 'percent' ? `${appliedDiscount.value}%` : `$${appliedDiscount.value}`})
+                    Applied: {appliedDiscount.code} (-{appliedDiscount.discount_type === 'percent' ? `${appliedDiscount.value}%` : `${appliedDiscount.value}`})
                   </div>
                 )}
                 {discountError && (
@@ -248,27 +264,27 @@ setDiscountError('');
               <div className="space-y-4 mb-6 pb-6 border-b border-border">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span>${subtotal.toFixed(2)}</span>
+                  <span>{subtotal}</span>
                 </div>
                 {appliedDiscount && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Discount</span>
-                    <span className="text-green-600">- ${discountValue.toFixed(2)}</span>
+                    <span className="text-green-600">- {discountValue}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Tax (8%)</span>
-                  <span>${tax.toFixed(2)}</span>
+                  <span>{tax}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Shipping</span>
-                  <span>${shipping.toFixed(2)}</span>
+                  <span>{shipping}</span>
                 </div>
               </div>
 
               <div className="flex justify-between mb-8 text-2xl">
                 <span>Total</span>
-                <span>${(appliedDiscount ? totalWithDiscount : total).toFixed(2)}</span>
+                <span>{(appliedDiscount ? totalWithDiscount : total)}</span>
               </div>
 
               <motion.button

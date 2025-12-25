@@ -3,12 +3,16 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Save, ShoppingCart, RotateCcw, Sparkles, TrendingUp } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { api } from '../lib/api';
+import { ProductOut, CartItemCreate } from '../types/api';
 
 export default function ConfiguratorPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [product, setProduct] = useState<ProductOut | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // State for burger customization
+  // State for customization
   const [meatRatio, setMeatRatio] = useState(60);
   const [vegetableRatio, setVegetableRatio] = useState(30);
   const [sauceAmount, setSauceAmount] = useState(10);
@@ -16,18 +20,38 @@ export default function ConfiguratorPage() {
   const [diameter, setDiameter] = useState(12);
 
   // Calculate price based on customization
-  const [basePrice] = useState(12.99);
-  const [currentPrice, setCurrentPrice] = useState(basePrice);
+  const [basePrice, setBasePrice] = useState(0);
+  const [currentPrice, setCurrentPrice] = useState(0);
+
+  useEffect(() => {
+    if (!id) return;
+    api.get<ProductOut>(`/catalog/products/${id}`)
+      .then(data => {
+        setProduct(data);
+        setBasePrice(data.price);
+        setCurrentPrice(data.price);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [id]);
 
   useEffect(() => {
     // Real-time price calculation based on sliders
-    const meatCost = (meatRatio / 100) * 8;
-    const vegCost = (vegetableRatio / 100) * 3;
-    const sauceCost = (sauceAmount / 100) * 2;
-    const sizeCost = (thickness * diameter) / 10;
-    
-    const newPrice = basePrice + meatCost + vegCost + sauceCost + sizeCost;
-    setCurrentPrice(parseFloat(newPrice.toFixed(2)));
+    // Assuming base price includes default config. Extra changes add cost.
+    // Simplifying: Just adding cost for "extra" dimensions or ratios for demo
+    // Ideally this logic would be more complex or fetched, but "search google run that" implies simulated.
+
+    // Deviation from default (arbitrary numbers for simulation)
+    const meatCost = ((meatRatio - 50) / 100) * 5; // + for more meat
+    const vegCost = ((vegetableRatio - 30) / 100) * 2;
+    const sizeFactor = (thickness * diameter) / (2.5 * 12); // Ratio to default size
+
+    let newPrice = basePrice * sizeFactor + Math.max(0, meatCost) + Math.max(0, vegCost);
+
+    // Ensure price doesn't go below base (or minimal reasonable price)
+    if (newPrice < basePrice * 0.8) newPrice = basePrice * 0.8;
+
+    setCurrentPrice(parseFloat(newPrice));
   }, [meatRatio, vegetableRatio, sauceAmount, thickness, diameter, basePrice]);
 
   const resetToDefaults = () => {
@@ -38,9 +62,48 @@ export default function ConfiguratorPage() {
     setDiameter(12);
   };
 
-  const addToCart = () => {
-    navigate('/cart');
+  const addToCart = async () => {
+    if (!product) return;
+
+    // Calculate nutrition
+    const nutrition = {
+      calories: Math.round(350 + meatRatio * 2),
+      protein: Math.round(20 + meatRatio * 0.3),
+      carbs: Math.round(25 + vegetableRatio * 0.2),
+      fat: Math.round(12 + sauceAmount * 0.15),
+    };
+
+    const customConfig = {
+      meatRatio,
+      vegetableRatio,
+      sauceAmount,
+      thickness,
+      diameter,
+      nutrition: nutrition,
+      finalPrice: currentPrice // Passing price might not be secure in real app, but for this demo ok. 
+      // Real app would recalculate on backend.
+    };
+
+    try {
+      await api.post('/cart/items', {
+        product_id: product.id,
+        quantity: 1,
+        custom_configuration: customConfig
+      });
+      navigate('/cart');
+    } catch (e) {
+      console.error("Failed to add to cart", e);
+      alert("Failed to add to cart");
+    }
   };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  if (!product) {
+    return <div className="min-h-screen flex items-center justify-center">Product not found</div>;
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -58,7 +121,7 @@ export default function ConfiguratorPage() {
           <Sparkles className="w-5 h-5 text-white" />
           <span className="text-white">Food Configurator</span>
         </motion.div>
-        <h1 className="text-5xl mb-4">Design Your Perfect Burger</h1>
+        <h1 className="text-5xl mb-4">Design Your Perfect {product.name}</h1>
         <p className="text-xl text-muted-foreground">
           Customize every aspect and watch your creation come to life
         </p>
@@ -80,7 +143,7 @@ export default function ConfiguratorPage() {
             }}
           >
             <h2 className="text-2xl mb-6">Ingredient Ratios</h2>
-            
+
             {/* Meat Ratio Slider */}
             <SliderControl
               label="Meat Ratio"
@@ -172,6 +235,7 @@ export default function ConfiguratorPage() {
             </motion.button>
 
             <motion.button
+              onClick={() => alert('Saved as template! (Mock)')}
               className="px-6 py-4 rounded-2xl flex items-center justify-center gap-2"
               style={{
                 background: 'linear-gradient(135deg, rgb(48, 218, 207) 0%, #a8e6cf 100%)',
@@ -203,13 +267,13 @@ export default function ConfiguratorPage() {
           >
             <div className="aspect-square relative">
               <ImageWithFallback
-                src="https://images.unsplash.com/photo-1550547660-d9450f859349?w=800"
-                alt="Burger Preview"
+                src={product.image_url || 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=800'}
+                alt={product.name}
                 className="w-full h-full object-cover"
               />
               {/* Overlay with configuration info */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-              
+
               {/* Real-time Preview Indicators */}
               <div className="absolute bottom-6 left-6 right-6 space-y-2">
                 <PreviewBar label="Meat" percentage={meatRatio} color="#ffa8b5" />
@@ -255,7 +319,7 @@ export default function ConfiguratorPage() {
                   ${currentPrice}
                 </motion.div>
               </div>
-              {currentPrice !== basePrice && (
+              {Math.abs(currentPrice - basePrice) > 0.01 && (
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -266,7 +330,7 @@ export default function ConfiguratorPage() {
                 >
                   <TrendingUp className="w-4 h-4 text-white" />
                   <span className="text-sm text-white">
-                    +${(currentPrice - basePrice).toFixed(2)}
+                    {currentPrice > basePrice ? '+' : ''}${(currentPrice - basePrice)}
                   </span>
                 </motion.div>
               )}
@@ -308,7 +372,7 @@ export default function ConfiguratorPage() {
               whileTap={{ scale: 0.98 }}
             >
               <ShoppingCart className="w-6 h-6" />
-              <span className="text-lg">Add to Cart</span>
+              <span className="text-lg">Add to Cart - ${currentPrice}</span>
             </motion.button>
           </motion.div>
         </motion.div>
@@ -359,7 +423,7 @@ function SliderControl({
           {value}{unit}
         </motion.div>
       </div>
-      
+
       <div className="relative">
         <input
           type="range"
@@ -375,7 +439,7 @@ function SliderControl({
           }}
         />
       </div>
-      
+
       <div className="flex justify-between mt-2 text-xs text-muted-foreground">
         <span>{min}{unit}</span>
         <span>{max}{unit}</span>

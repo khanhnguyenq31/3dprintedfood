@@ -1,63 +1,123 @@
-import { useParams } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Package, Truck, CheckCircle2, Clock } from 'lucide-react';
+import { api } from '../lib/api';
+import { OrderOut, AddressOut } from '../types/api';
 
 export default function OrderTrackingPage() {
   const { orderId } = useParams();
+  const navigate = useNavigate();
+  const [order, setOrder] = useState<OrderOut | null>(null);
+  const [address, setAddress] = useState<AddressOut | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const orderStatus = {
-    orderId: orderId || 'ABC123',
-    status: 'in_transit',
-    estimatedDelivery: 'November 30, 2025',
-    currentStep: 3,
-  };
+  useEffect(() => {
+    if (!orderId) return;
+
+    // Fetch all orders and find the one matching ID (Since /order/{id} might not exist)
+    api.get<OrderOut[]>('/order')
+      .then(async (orders) => {
+        const foundOrder = orders.find(o => o.id === Number(orderId));
+        if (foundOrder) {
+          setOrder(foundOrder);
+          // Fetch address details
+          try {
+            const addresses = await api.get<AddressOut[]>('/users/me/addresses');
+            const foundAddress = addresses.find(a => a.id === foundOrder.address_id);
+            if (foundAddress) setAddress(foundAddress);
+          } catch (e) {
+            console.error("Failed to fetch address", e);
+          }
+        } else {
+          // Handle not found
+          console.error("Order not found");
+          // maybe navigate back
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [orderId]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
+
+  if (!order) {
+    return (
+      <div className="text-center py-20">
+        <h2 className="text-2xl font-bold">Order not found</h2>
+        <button onClick={() => navigate('/order-history')} className="text-primary mt-4 hover:underline">Back to History</button>
+      </div>
+    )
+  }
+
+  // Determine current step based on status
+  // Statuses: 'pending', 'confirmed', 'processing' (printing), 'ready' (quality check?), 'shipped' (out for delivery), 'delivered'
+  // Simplified mapping
+  let currentStep = 1;
+  const statusLower = order.status.toLowerCase();
+
+  if (statusLower === 'delivered') currentStep = 5;
+  else if (statusLower === 'shipped' || statusLower === 'in_transit') currentStep = 4;
+  else if (statusLower === 'ready' || statusLower === 'quality_check') currentStep = 3;
+  else if (statusLower === 'processing' || statusLower === 'printing' || statusLower === 'confirmed') currentStep = 2;
+  else currentStep = 1;
 
   const timeline = [
     {
       step: 1,
       label: 'Order Placed',
       description: 'Your order has been confirmed',
-      timestamp: 'Nov 28, 10:30 AM',
+      timestamp: new Date(order.created_at).toLocaleString(),
       icon: <CheckCircle2 className="w-6 h-6" />,
       color: '#a18cd1',
-      completed: true,
+      completed: currentStep > 1,
+      current: currentStep === 1,
     },
     {
       step: 2,
       label: 'Printing Started',
       description: '3D printing your customized food',
-      timestamp: 'Nov 28, 11:00 AM',
+      timestamp: currentStep >= 2 ? 'In Progress' : 'Pending', // We don't have timestamps for steps yet
       icon: <Package className="w-6 h-6" />,
       color: '#89d4cf',
-      completed: true,
+      completed: currentStep > 2,
+      current: currentStep === 2,
     },
     {
       step: 3,
       label: 'Quality Check',
       description: 'Ensuring perfection',
-      timestamp: 'Nov 28, 2:15 PM',
+      timestamp: currentStep >= 3 ? 'In Progress' : 'Pending',
       icon: <CheckCircle2 className="w-6 h-6" />,
       color: '#ffa8b5',
-      completed: true,
+      completed: currentStep > 3,
+      current: currentStep === 3,
     },
     {
       step: 4,
       label: 'Out for Delivery',
       description: 'On its way to you',
-      timestamp: 'Nov 29, 8:00 AM',
+      timestamp: currentStep >= 4 ? 'In Progress' : 'Pending',
       icon: <Truck className="w-6 h-6" />,
       color: '#ffd89b',
-      completed: false,
-      current: true,
+      completed: currentStep > 4,
+      current: currentStep === 4,
     },
     {
       step: 5,
       label: 'Delivered',
       description: 'Enjoy your meal!',
-      timestamp: 'Estimated: Nov 30',
+      timestamp: currentStep === 5 ? 'Delivered' : 'Estimated',
       icon: <CheckCircle2 className="w-6 h-6" />,
       color: '#c9a9e9',
-      completed: false,
+      completed: currentStep === 5,
+      current: false, // Delivered is final state
     },
   ];
 
@@ -77,11 +137,11 @@ export default function OrderTrackingPage() {
           }}
         >
           <Package className="w-5 h-5 text-white" />
-          <span className="text-white">Order #{orderStatus.orderId}</span>
+          <span className="text-white">Order #{order.id}</span>
         </div>
         <h1 className="text-4xl mb-4">Track Your Order</h1>
         <p className="text-lg text-muted-foreground">
-          Estimated delivery: {orderStatus.estimatedDelivery}
+          Current Status: {order.status}
         </p>
       </motion.div>
 
@@ -184,13 +244,19 @@ export default function OrderTrackingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <div className="text-sm text-white/70 mb-1">Delivery Address</div>
-              <div>123 Main St, Apt 4B</div>
-              <div>New York, NY 10001</div>
+              {address ? (
+                <>
+                  <div>{address.address_line1}</div>
+                  <div>{address.city}, {address.state} {address.postal_code}</div>
+                </>
+              ) : (
+                <div>Loading address...</div>
+              )}
             </div>
             <div>
               <div className="text-sm text-white/70 mb-1">Contact</div>
-              <div>you@example.com</div>
-              <div>+1 (555) 123-4567</div>
+              {/* User contact should be fetched too if not in address, but for now placeholder or use address phone */}
+              <div>{address?.phone || 'Loading...'}</div>
             </div>
           </div>
         </div>

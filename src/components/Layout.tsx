@@ -89,7 +89,20 @@ export default function Layout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation(); // Forces re-render on route change
-  const cartItemCount = 3; // Mock data
+  const [cartItemCount, setCartItemCount] = useState(0);
+
+  useEffect(() => {
+    if (!localStorage.getItem('access_token')) {
+      setCartItemCount(0);
+      return;
+    }
+    api.get<any>('/cart') // Using any or specific CartOut type
+      .then(data => {
+        const count = data.items.reduce((sum: number, item: any) => sum + item.quantity, 0);
+        setCartItemCount(count);
+      })
+      .catch(() => setCartItemCount(0));
+  }, [location.pathname]); // Re-fetch on navigation (e.g. after adding to cart)
 
   return (
     <div className="min-h-screen">
@@ -119,7 +132,7 @@ export default function Layout() {
               <NavLink to="/" icon={<Home className="w-4 h-4" />}>Home</NavLink>
               <NavLink to="/information" icon={<Info className="w-4 h-4" />}>About</NavLink>
               <NavLink to="/search" icon={<Search className="w-4 h-4" />}>Search</NavLink>
-              <NavLink to="/subscription" icon={<CreditCard className="w-4 h-4" />}>Plans</NavLink>
+              {/* <NavLink to="/subscription" icon={<CreditCard className="w-4 h-4" />}>Plans</NavLink> */}
               <NavLink to="/order-history" icon={<History className="w-4 h-4" />}>Orders</NavLink>
               <NavLink to="wishlist" icon={<Heart className="w-4 h-4" />}>Wishlist</NavLink>
             </div>

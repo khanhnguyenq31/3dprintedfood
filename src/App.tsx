@@ -23,6 +23,8 @@ import FeedbackPage from "./components/FeedbackPage";
 import WishlistPage from "./components/WishlistPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AuthCallbackPage from "./components/AuthCallbackPage";
+import PaymentCallbackPage from "./components/PaymentCallbackPage";
+
 export default function App() {
   return (
     <Router>
@@ -37,6 +39,7 @@ export default function App() {
           <Route path="/style-guide" element={<StyleGuidePage />} />
           <Route path="/information" element={<InformationPage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/payment-callback" element={<PaymentCallbackPage />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route index element={<HomePage />} />
 
@@ -89,16 +92,16 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          <Route
+          {/* <Route
             path="/subscription"
             element={
               <ProtectedRoute>
                 <SubscriptionPage />
               </ProtectedRoute>
             }
-          />
-        </Route>
-      </Routes>
-    </Router>
+          /> */}
+        </Route >
+      </Routes >
+    </Router >
   );
 }

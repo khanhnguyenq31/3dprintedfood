@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Star, Sparkles, TrendingUp } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { useFetchCategories, useFetchProducts, categoriesDictionary, productsDictionary, Category, ProductDisplay } from '../hooks/Product_hooks';
+import { api } from '../lib/api';
+import { CategoryOut, ProductOut } from '../types/api';
 
 type CategoryDisplay = {
   id: string | number;
@@ -17,22 +18,27 @@ type CategoryDisplay = {
 const DICTIONARY_CHECK_INTERVAL = 300;
 
 const DEFAULT_CATEGORY_DATA: Record<string, Omit<CategoryDisplay, 'id' | 'name' | 'description'>> = {
-    burger: {
-      emoji: '🍔',
-      gradient: 'linear-gradient(135deg, rgb(201, 57, 79) 0%, #ffc4d6 100%)',
-      image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxnb3VybWV0JTIwYnVyZ2VyfGVufDF8fHx8MTc2NDMyMjA3Mnww&ixlib=rb-4.1.0&q=80&w=1080',
-    },
-    cake: {
-      emoji: '🎂',
-      gradient: 'linear-gradient(135deg, rgb(88, 35, 212) 0%, #c9a9e9 100%)',
-      image: 'https://images.unsplash.com/photo-1635822161882-b82ffacd8278?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxjb2xvcmZ1bCUyMGNha2V8ZW58MXx8fHwxNzY0MzMwMDcxfDA&ixlib=rb-4.1.0&q=80&w=1080',
-    },
-    candy: {
-      emoji: '🍬',
-      gradient: 'linear-gradient(135deg, rgb(48, 218, 207) 0%, #a8e6cf 100%)',
-      image: 'https://images.unsplash.com/photo-1720924109595-161e675c792f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxjYW5keSUyMHN3ZWV0c3xlbnwxfHx8fDE3NjQzMTExNzJ8MA&ixlib=rb-4.1.0&q=80&w=1080',
-    },
-  };
+  burger: {
+    emoji: '🍔',
+    gradient: 'linear-gradient(135deg, rgb(201, 57, 79) 0%, #ffc4d6 100%)',
+    image: 'https://images.unsplash.com/photo-1550547660-d9450f859349?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxnb3VybWV0JTIwYnVyZ2VyfGVufDF8fHx8MTc2NDMyMjA3Mnww&ixlib=rb-4.1.0&q=80&w=1080',
+  },
+  cake: {
+    emoji: '🎂',
+    gradient: 'linear-gradient(135deg, rgb(88, 35, 212) 0%, #c9a9e9 100%)',
+    image: 'https://images.unsplash.com/photo-1635822161882-b82ffacd8278?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxjb2xvcmZ1bCUyMGNha2V8ZW58MXx8fHwxNzY0MzMwMDcxfDA&ixlib=rb-4.1.0&q=80&w=1080',
+  },
+  candy: {
+    emoji: '🍬',
+    gradient: 'linear-gradient(135deg, rgb(48, 218, 207) 0%, #a8e6cf 100%)',
+    image: 'https://images.unsplash.com/photo-1720924109595-161e675c792f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHxjYW5keSUyMHN3ZWV0c3xlbnwxfHx8fDE3NjQzMTExNzJ8MA&ixlib=rb-4.1.0&q=80&w=1080',
+  },
+  chocolate: {
+    emoji: '🍫',
+    gradient: 'linear-gradient(135deg, #5d4037 0%, #8d6e63 100%)',
+    image: 'https://images.unsplash.com/photo-1621451537084-482c73073a0f?auto=format&fit=crop&q=80&w=1080',
+  }
+};
 
 const DEFAULT_FALLBACK: Omit<CategoryDisplay, 'id' | 'name' | 'description'> = {
   emoji: '🍽️',
@@ -40,119 +46,80 @@ const DEFAULT_FALLBACK: Omit<CategoryDisplay, 'id' | 'name' | 'description'> = {
   image: 'https://images.unsplash.com/photo-1553678324-f84674bd7b24?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmdXR1cmlzdGljJTIwZm9vZCUyMHRlY2hub2xvZ3l8ZW58MXx8fHwxNzY0MzMwMDcxfDA&ixlib=rb-4.1.0&q=80&w=1080',
 };
 
-type RecommendedProduct = ProductDisplay & {
+// Simplified Display Type for Homepage
+type ProductDisplayInner = {
+  id: number;
+  name: string;
+  category: string;
+  price: number;
+  rating: number;
+  image: string;
   featured: boolean;
 };
 
 export default function HomePage() {
   const navigate = useNavigate();
-  useFetchCategories();
-  useFetchProducts();
   const [categories, setCategories] = useState<CategoryDisplay[]>([]);
-  const [recommendedProducts, setRecommendedProducts] = useState<RecommendedProduct[]>([]);
+  const [recommendedProducts, setRecommendedProducts] = useState<ProductDisplayInner[]>([]);
 
   useEffect(() => {
-    // Map API categories to display format
-    const mapCategories = () => {
-      const apiCategories = Array.from(categoriesDictionary.values());
-      
-      if (apiCategories.length === 0) {
-        // If no API data, use hardcoded fallback
-        setCategories([
-          {
-            id: 'burger',
-            name: 'Burgers',
-            description: 'Customize protein, veggies & sauce',
-            ...DEFAULT_CATEGORY_DATA.burger,
-          },
-          {
-            id: 'cake',
-            name: 'Cakes',
-            description: 'Adjust sweetness, size & flavor',
-            ...DEFAULT_CATEGORY_DATA.cake,
-          },
-          {
-            id: 'candy',
-            name: 'Candy',
-            description: 'Control shape, color & sweetness',
-            ...DEFAULT_CATEGORY_DATA.candy,
-          },
-        ]);
-        return;
-      }
+    // 1. Fetch Categories
+    api.get<CategoryOut[]>('/catalog/categories')
+      .then(apiCategories => {
+        // Map API categories with hardcoded fallbacks for STYLING only
+        // Limit to 3 categories as requested
+        const mappedCategories: CategoryDisplay[] = apiCategories.slice(0, 3).map((apiCategory) => {
+          // Try to match by name (case-insensitive)
+          const nameLower = apiCategory.name.toLowerCase();
+          let fallbackKey = '';
 
-      // Map API categories with hardcoded fallbacks
-      const mappedCategories: CategoryDisplay[] = apiCategories.map((apiCategory: Category) => {
-        // Try to match by name (case-insensitive)
-        const nameLower = apiCategory.name.toLowerCase();
-        let fallbackKey = '';
-        
-        if (nameLower.includes('burger') || nameLower.includes('bugger')) {
-          fallbackKey = 'burger';
-        } else if (nameLower.includes('cake')) {
-          fallbackKey = 'cake';
-        } else if (nameLower.includes('candy')) {
-          fallbackKey = 'candy';
-        }
+          if (nameLower.includes('burger') || nameLower.includes('bugger')) {
+            fallbackKey = 'burger';
+          } else if (nameLower.includes('bánh ngọt') || nameLower.includes('cake')) {
+            fallbackKey = 'cake';
+          } else if (nameLower.includes('chocolate') || nameLower.includes('socola')) {
+            fallbackKey = 'chocolate';
+          } else if (nameLower.includes('candy') || nameLower.includes('kẹo')) {
+            fallbackKey = 'candy';
+          }
 
-        const fallback = fallbackKey ? DEFAULT_CATEGORY_DATA[fallbackKey] : DEFAULT_FALLBACK;
+          const fallback = fallbackKey ? DEFAULT_CATEGORY_DATA[fallbackKey] : DEFAULT_FALLBACK;
 
-        return {
-          id: apiCategory.id,
-          name: apiCategory.name || 'Category',
-          description: apiCategory.description || 'Customize your meal',
-          emoji: fallback.emoji,
-          gradient: fallback.gradient,
-          image: fallback.image,
-        };
-      });
+          return {
+            id: apiCategory.id,
+            name: apiCategory.name,
+            description: apiCategory.description || 'Customize your meal',
+            emoji: fallback.emoji,
+            gradient: fallback.gradient,
+            image: fallback.image,
+          };
+        });
+        setCategories(mappedCategories);
+      })
+      .catch(console.error);
 
-      setCategories(mappedCategories);
-    };
+    // 2. Fetch Products
+    api.get<ProductOut[]>('/catalog/products')
+      .then(apiProducts => {
+        // Shuffle and take top 4
+        const shuffled = [...apiProducts].sort(() => 0.5 - Math.random());
+        const MAX_TRENDING_PRODUCTS = 4;
+        const productsToShow = shuffled.slice(0, MAX_TRENDING_PRODUCTS);
 
-    // Initial call
-    mapCategories();
+        const recommended: ProductDisplayInner[] = productsToShow.map((product, index) => ({
+          id: product.id,
+          name: product.name,
+          category: product.category?.name || 'Category',
+          price: product.price,
+          rating: 4.5, // Mock rating as product list might not have specific ratings easily available without extra calls
+          image: product.image_url || 'https://images.unsplash.com/photo-1553678324-f84674bd7b24?w=400',
+          featured: index < 2,
+        }));
 
-    // Check periodically if dictionary is populated (since fetch is async)
-    const interval = setInterval(() => {
-      if (categoriesDictionary.size > 0) {
-        mapCategories();
-        clearInterval(interval);
-      }
-    }, DICTIONARY_CHECK_INTERVAL);
+        setRecommendedProducts(recommended);
+      })
+      .catch(console.error);
 
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    const loadRecommendedProducts = () => {
-      const productsArray = Array.from(productsDictionary.values());
-      
-      if (productsArray.length === 0) {
-        return;
-      }
-
-      const MAX_TRENDING_PRODUCTS = 4;
-      const productsToShow = productsArray.slice(0, MAX_TRENDING_PRODUCTS);
-      
-      const recommended: RecommendedProduct[] = productsToShow.map((product, index) => ({
-        ...product,
-        featured: index < 2,
-      }));
-
-      setRecommendedProducts(recommended);
-    };
-
-    loadRecommendedProducts();
-
-    const interval = setInterval(() => {
-      if (productsDictionary.size > 0) {
-        loadRecommendedProducts();
-        clearInterval(interval);
-      }
-    }, DICTIONARY_CHECK_INTERVAL);
-
-    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -407,7 +374,7 @@ export default function HomePage() {
                   <div className="text-xs text-muted-foreground mb-2">{product.category}</div>
                   <h4 className="mb-3">{product.name}</h4>
                   <div className="flex items-center justify-between">
-                    <div className="text-2xl">${product.price.toFixed(2)}</div>
+                    <div className="text-2xl">${product.price}</div>
                     <div className="flex items-center gap-1">
                       <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                       <span className="text-sm">{product.rating}</span>
