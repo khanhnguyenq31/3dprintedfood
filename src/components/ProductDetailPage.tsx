@@ -149,7 +149,47 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Price */}
-          <div className="text-4xl mb-6">${product.price}</div>
+          <div className="text-4xl mb-2">${displayPrice.toFixed(2)}</div>
+          {selectedVariant && (
+            <div className="text-sm text-muted-foreground mb-6">
+              Stock: {displayStock} available
+            </div>
+          )}
+
+          {/* Variants Selection */}
+          {variants.length > 0 && (
+            <div className="mb-6">
+              <label className="block mb-3 text-sm font-medium">Select Variant</label>
+              <div className="flex flex-wrap gap-3">
+                {variants.map((variant) => (
+                  <motion.button
+                    key={variant.id}
+                    onClick={() => handleVariantSelect(variant)}
+                    className="px-5 py-3 rounded-xl text-sm transition-all"
+                    style={{
+                      background: selectedVariant?.id === variant.id
+                        ? 'linear-gradient(135deg, #a18cd1 0%, #c9a9e9 100%)'
+                        : '#f5f7fa',
+                      color: selectedVariant?.id === variant.id ? '#ffffff' : '#2d3142',
+                      boxShadow: selectedVariant?.id === variant.id
+                        ? '0 4px 16px rgba(161, 140, 209, 0.3)'
+                        : 'inset 2px 2px 4px rgba(163, 177, 198, 0.15)',
+                    }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    disabled={variant.stock === 0}
+                  >
+                    <div className="flex flex-col items-start">
+                      <span>{variant.name}</span>
+                      <span className="text-xs opacity-80">
+                        ${variant.price.toFixed(2)} {variant.stock === 0 && '(Out of stock)'}
+                      </span>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Description */}
           <p className="text-muted-foreground mb-8 leading-relaxed">

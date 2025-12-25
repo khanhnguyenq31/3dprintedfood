@@ -9,10 +9,11 @@ import { TagOut, ProductOut } from '../types/api';
 export default function SearchPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const initialCategory = searchParams.get('category') || 'all';
+  useFetchProducts();
+  const [products, setProducts] = useState<ProductDisplay[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState(initialCategory);
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
   const [selectedNutrition, setSelectedNutrition] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -288,7 +289,7 @@ export default function SearchPage() {
                 <div className="text-xs text-muted-foreground mb-2">{product.category?.name || 'Uncategorized'}</div>
                 <h4 className="mb-4">{product.name}</h4>
                 <div className="flex items-center justify-between">
-                  <div className="text-2xl">${product.price}</div>
+                  <div className="text-2xl">${product.price.toFixed(2)}</div>
                   <div className="flex items-center gap-1">
                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
                     <span className="text-sm">4.8</span>
