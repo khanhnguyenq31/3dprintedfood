@@ -1,142 +1,63 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Star, ShoppingCart, Heart, Share2, Sparkles, ChevronRight } from 'lucide-react';
+import { Star, ShoppingCart, Heart, Share2, Sparkles, ChevronRight, MessageSquare } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { fetchProductDetail, fetchProductVariants, productDetailsDictionary, productVariantsDictionary, ProductDetailDisplay, Variant } from '../hooks/Product_hooks';
-
-const DICTIONARY_CHECK_INTERVAL = 300;
-
-const DEFAULT_PRODUCT: ProductDetailDisplay = {
-  id: 0,
-  name: 'Product',
-  category: 'Uncategorized',
-  price: 0,
-  rating: 4.5,
-  reviews: 0,
-  image: 'https://images.unsplash.com/photo-1553678324-f84674bd7b24?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmdXR1cmlzdGljJTIwZm9vZCUyMHRlY2hub2xvZ3l8ZW58MXx8fHwxNzY0MzMwMDcxfDA&ixlib=rb-4.1.0&q=80&w=1080',
-  description: 'No description available',
-  highlights: [
-    'Customizable ingredients',
-    'Zero food waste production',
-    'Optimized nutrition',
-    'Fresh ingredients daily',
-  ],
-  nutrition: null,
-};
+import { api } from '../lib/api';
+import { ProductOut } from '../types/api';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [quantity, setQuantity] = useState(1);
   const [liked, setLiked] = useState(false);
-  const [product, setProduct] = useState<ProductDetailDisplay>(DEFAULT_PRODUCT);
+  const [product, setProduct] = useState<ProductOut | null>(null);
   const [loading, setLoading] = useState(true);
-  const [variants, setVariants] = useState<Variant[]>([]);
-  const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
-
-  const productId = parseInt(id || '0');
-  
-  const displayPrice = selectedVariant ? selectedVariant.price : product.price;
-  const displayStock = selectedVariant ? selectedVariant.stock : 0;
 
   useEffect(() => {
-    const loadProductDetail = async () => {
-      if (productId === 0) {
+    if (!id) return;
+    setLoading(true);
+    api.get<ProductOut>(`/catalog/products/${id}`)
+      .then((data) => {
+        setProduct(data);
         setLoading(false);
-        return;
-      }
-
-      const cachedProduct = productDetailsDictionary.get(productId);
-      if (cachedProduct) {
-        setProduct(cachedProduct);
+      })
+      .catch(err => {
+        console.error(err);
         setLoading(false);
-        return;
-      }
+      });
+  }, [id]);
 
-      const fetchedProduct = await fetchProductDetail(productId);
-      if (fetchedProduct) {
-        setProduct(fetchedProduct);
-      }
-      setLoading(false);
-    };
-
-    loadProductDetail();
-
-    const interval = setInterval(() => {
-      const cachedProduct = productDetailsDictionary.get(productId);
-      if (cachedProduct) {
-        setProduct(cachedProduct);
-        clearInterval(interval);
-        setLoading(false);
-      }
-    }, DICTIONARY_CHECK_INTERVAL);
-
-    return () => clearInterval(interval);
-  }, [productId]);
-
-  useEffect(() => {
-    const loadVariants = async () => {
-      if (productId === 0) {
-        return;
-      }
-
-      const cachedVariants = productVariantsDictionary.get(productId);
-      if (cachedVariants && cachedVariants.length > 0) {
-        setVariants(cachedVariants);
-        if (!selectedVariant && cachedVariants.length > 0) {
-          setSelectedVariant(cachedVariants[0]);
-        }
-        return;
-      }
-
-      const fetchedVariants = await fetchProductVariants(productId);
-      if (fetchedVariants && fetchedVariants.length > 0) {
-        setVariants(fetchedVariants);
-        setSelectedVariant(fetchedVariants[0]);
-      }
-    };
-
-    loadVariants();
-
-    const interval = setInterval(() => {
-      const cachedVariants = productVariantsDictionary.get(productId);
-      if (cachedVariants && cachedVariants.length > 0) {
-        setVariants(cachedVariants);
-        if (!selectedVariant && cachedVariants.length > 0) {
-          setSelectedVariant(cachedVariants[0]);
-        }
-        clearInterval(interval);
-      }
-    }, DICTIONARY_CHECK_INTERVAL);
-
-    return () => clearInterval(interval);
-  }, [productId, selectedVariant]);
-
-  const handleVariantSelect = (variant: Variant) => {
-    setSelectedVariant(variant);
-    setQuantity(1);
+  const addToWishlist = async () => {
+    if (!localStorage.getItem('access_token')) {
+      navigate('/login');
+      return;
+    }
+    if (!product) return;
+    try {
+      await api.post('/wishlist', { product_id: product.id });
+      setLiked(true);
+      // Show toast success?
+    } catch (error) {
+      console.error('Error adding to wishlist', error);
+    }
   };
 
   const addToCart = () => {
-    // Mock add to cart - có thể lưu selectedVariant.id vào cart
     navigate('/cart');
   };
 
-  if (loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center py-20">
-          <div className="text-4xl mb-4">⏳</div>
-          <h3 className="mb-2">Loading product...</h3>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div className="min-h-screen pt-24 flex justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
+  if (!product) return <div className="min-h-screen pt-24 text-center">Product not found</div>;
+
+  // Placeholder data for fields not yet in API
+  const highlights = ['Fresh ingredients', '3D Printed', 'Customizable'];
+  const nutrition = { calories: 450, protein: 30, carbs: 45, fat: 15, fiber: 5 };
+  const rating = 4.5;
+  const reviewCount = 120;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      {/* Breadcrumb - Gestalt: Continuity */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground mb-8">
         <button onClick={() => navigate('/')} className="hover:text-foreground">Home</button>
         <ChevronRight className="w-4 h-4" />
@@ -146,7 +67,6 @@ export default function ProductDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16">
-        {/* Left: Product Image - Gestalt: Figure/Ground */}
         <motion.div
           initial={{ opacity: 0, x: -30 }}
           animate={{ opacity: 1, x: 0 }}
@@ -159,7 +79,7 @@ export default function ProductDetailPage() {
             }}
           >
             <ImageWithFallback
-              src={product.image}
+              src={product.image_url || 'https://images.unsplash.com/photo-1550547660-d9450f859349?w=800'}
               alt={product.name}
               className="w-full h-full object-cover"
             />
@@ -169,7 +89,7 @@ export default function ProductDetailPage() {
           {/* Action Buttons */}
           <div className="absolute top-6 right-6 flex flex-col gap-3">
             <motion.button
-              onClick={() => setLiked(!liked)}
+              onClick={addToWishlist}
               className="w-14 h-14 rounded-2xl flex items-center justify-center backdrop-blur-lg"
               style={{
                 background: 'rgba(255, 255, 255, 0.9)',
@@ -196,32 +116,36 @@ export default function ProductDetailPage() {
           </div>
         </motion.div>
 
-        {/* Right: Product Info - Gestalt: Proximity & Alignment */}
         <motion.div
           initial={{ opacity: 0, x: 30 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <div className="text-sm text-muted-foreground mb-2">{product.category}</div>
+          <div className="text-sm text-muted-foreground mb-2">{product.category_id || 'Category'}</div>
           <h1 className="text-4xl mb-4">{product.name}</h1>
 
-          {/* Rating - Gestalt: Proximity */}
           <div className="flex items-center gap-4 mb-6">
             <div className="flex items-center gap-2">
               {[1, 2, 3, 4, 5].map((star) => (
                 <Star
                   key={star}
-                  className={`w-5 h-5 ${
-                    star <= Math.floor(product.rating)
-                      ? 'fill-yellow-400 text-yellow-400'
-                      : 'text-gray-300'
-                  }`}
+                  className={`w-5 h-5 ${star <= Math.floor(rating)
+                    ? 'fill-yellow-400 text-yellow-400'
+                    : 'text-gray-300'
+                    }`}
                 />
               ))}
             </div>
             <span className="text-muted-foreground">
-              {product.rating} ({product.reviews} reviews)
+              {rating} ({reviewCount} reviews)
             </span>
+            <button
+              onClick={() => navigate(`/feedback?product_id=${product.id}`)}
+              className="text-sm text-blue-500 hover:text-blue-700 flex items-center gap-1"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Write a Review
+            </button>
           </div>
 
           {/* Price */}
@@ -272,7 +196,6 @@ export default function ProductDetailPage() {
             {product.description}
           </p>
 
-          {/* Highlights - Gestalt: Common Region */}
           <div
             className="p-6 rounded-2xl mb-8"
             style={{
@@ -284,7 +207,7 @@ export default function ProductDetailPage() {
               Product Highlights
             </h4>
             <ul className="space-y-3">
-              {product.highlights.map((highlight, index) => (
+              {highlights.map((highlight: string, index: number) => (
                 <motion.li
                   key={index}
                   initial={{ opacity: 0, x: -20 }}
@@ -302,7 +225,6 @@ export default function ProductDetailPage() {
             </ul>
           </div>
 
-          {/* Quantity & Add to Cart - Gestalt: Proximity */}
           <div className="flex gap-4 mb-6">
             <div
               className="flex items-center gap-4 px-6 py-4 rounded-2xl"
@@ -359,43 +281,40 @@ export default function ProductDetailPage() {
         </motion.div>
       </div>
 
-      {/* Nutrition Information - Gestalt: Common Region & Alignment */}
-      {product.nutrition && (
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="p-8 rounded-3xl"
-          style={{
-            background: '#ffffff',
-            boxShadow: '10px 10px 20px rgba(163, 177, 198, 0.2), -10px -10px 20px rgba(255, 255, 255, 0.8)',
-          }}
-        >
-          <h2 className="text-2xl mb-6">Nutrition Information</h2>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
-            {Object.entries(product.nutrition).map(([key, value], index) => (
-              <motion.div
-                key={key}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.5 + index * 0.05 }}
-                className="text-center p-6 rounded-2xl"
-                style={{
-                  background: 'linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%)',
-                }}
-              >
-                <div className="text-3xl mb-2">{value}</div>
-                <div className="text-sm text-muted-foreground capitalize">
-                  {key === 'carbs' ? 'Carbs' : key}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  {key === 'calories' ? 'kcal' : 'g'}
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      )}
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="p-8 rounded-3xl"
+        style={{
+          background: '#ffffff',
+          boxShadow: '10px 10px 20px rgba(163, 177, 198, 0.2), -10px -10px 20px rgba(255, 255, 255, 0.8)',
+        }}
+      >
+        <h2 className="text-2xl mb-6">Nutrition Information</h2>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+          {Object.entries(nutrition).map(([key, value], index) => (
+            <motion.div
+              key={key}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.5 + index * 0.05 }}
+              className="text-center p-6 rounded-2xl"
+              style={{
+                background: 'linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%)',
+              }}
+            >
+              <div className="text-3xl mb-2">{value as React.ReactNode}</div>
+              <div className="text-sm text-muted-foreground capitalize">
+                {key === 'carbs' ? 'Carbs' : key}
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {key === 'calories' ? 'kcal' : 'g'}
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      </motion.div>
     </div>
   );
 }

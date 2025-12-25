@@ -3,6 +3,7 @@ import {
   Routes,
   Route,
 } from "react-router-dom";
+import { Toaster } from 'sonner';
 import Layout from "./components/Layout";
 import LoginPage from "./components/LoginPage";
 import SignupPage from "./components/SignupPage";
@@ -21,12 +22,15 @@ import ContactUsPage from "./components/ContactUsPage";
 import FeedbackPage from "./components/FeedbackPage";
 import WishlistPage from "./components/WishlistPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AuthCallbackPage from "./components/AuthCallbackPage";
 export default function App() {
   return (
     <Router>
+      <Toaster richColors position="top-right" />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/" element={<Layout />}>
           <Route path="/contact" element={<ContactUsPage />} />
           <Route path="/feedback" element={<FeedbackPage />} />

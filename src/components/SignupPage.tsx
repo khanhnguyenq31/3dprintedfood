@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Mail, Lock, User, Printer, ArrowRight, Eye, EyeOff, Phone } from 'lucide-react';
+import { toast } from 'sonner';
+import { api, BASE_URL } from '../lib/api';
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -17,54 +19,47 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  const handleGoogleSignup = () => {
+    window.location.href = `${BASE_URL}/user/auth/google/login`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
 
     if (formData.password !== formData.confirmPassword) {
-      setMessage('Passwords do not match!');
+      toast.error('Passwords do not match!');
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch('https://tmdt251-be-production.up.railway.app/user/register-user', {
-        method: 'POST',
-        headers: {
-          'accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          fullname: formData.name,
-          email: formData.email,
-          phone: formData.phone,
-          password: formData.password,
-        }),
+      const res = await api.post<{ message: string }>('/user/register-user', {
+        fullname: formData.name,
+        email: formData.email,
+        phone: formData.phone || null,
+        password: formData.password,
       });
-      const data = await res.json();
-      if (res.ok) {
-        setMessage(data.message || 'Registration successful!');
-        setTimeout(() => {
-          navigate('/login');
-        }, 1500);
-      } else {
-        setMessage(data.message || 'Registration failed!');
-      }
-    } catch (err) {
-      setMessage('Network error!');
+
+      toast.success('Registration successful! Redirecting to login...');
+      setTimeout(() => {
+        navigate('/login');
+      }, 1500);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Registration failed!');
     }
     setLoading(false);
   };
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Visual Banner */}
       <motion.div
         className="hidden lg:flex flex-1 items-center justify-center p-12 relative overflow-hidden"
-              style={{
-                background: 'linear-gradient(135deg, rgb(88, 35, 212) 0%, #c9a9e9 100%)',
-                boxShadow: '0 0 20px rgba(161, 140, 209, 0.3)',
-              }}
+        style={{
+          background: 'linear-gradient(135deg, rgb(88, 35, 212) 0%, #c9a9e9 100%)',
+          boxShadow: '0 0 20px rgba(161, 140, 209, 0.3)',
+        }}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >
@@ -83,7 +78,7 @@ export default function SignupPage() {
             <p className="text-lg text-white/90 mb-8">
               Start your journey into the future of sustainable dining
             </p>
-<div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               {[
                 { name: 'Burgers', icon: '🍔' },
                 { name: 'Cakes', icon: '🎂' },
@@ -96,9 +91,7 @@ export default function SignupPage() {
                   transition={{ delay: 0.4 + index * 0.1 }}
                   className="p-4 rounded-2xl bg-white/20 backdrop-blur-sm"
                 >
-                  {/* Hiển thị icon động từ dữ liệu */}
                   <div className="text-2xl mb-2">{item.icon}</div>
-                  {/* Hiển thị tên món */}
                   <div className="text-sm">{item.name}</div>
                 </motion.div>
               ))}
@@ -107,7 +100,6 @@ export default function SignupPage() {
         </div>
       </motion.div>
 
-      {/* Right Side - Signup Form */}
       <div className="flex-1 flex items-center justify-center p-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -225,17 +217,15 @@ export default function SignupPage() {
                 setFocusedField={setFocusedField}
               />
 
-              {message && (
-                <div className="text-center text-sm mt-2 text-red-500">{message}</div>
-              )}
+
 
               <motion.button
                 type="submit"
                 className="w-full py-4 rounded-2xl text-white flex items-center justify-center gap-2 group"
-              style={{
-                background: 'linear-gradient(135deg, rgb(88, 35, 212) 0%, #c9a9e9 100%)',
-                boxShadow: '0 0 20px rgba(161, 140, 209, 0.3)',
-              }}
+                style={{
+                  background: 'linear-gradient(135deg, rgb(88, 35, 212) 0%, #c9a9e9 100%)',
+                  boxShadow: '0 0 20px rgba(161, 140, 209, 0.3)',
+                }}
                 whileHover={{ scale: 1.02, boxShadow: '0 12px 40px rgba(137, 212, 207, 0.5)' }}
                 whileTap={{ scale: 0.98 }}
                 disabled={loading}
@@ -245,6 +235,27 @@ export default function SignupPage() {
               </motion.button>
             </div>
           </motion.form>
+
+          <div className="mt-8">
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-[#f5f7fa] text-muted-foreground">Or join with</span>
+              </div>
+            </div>
+
+            <motion.button
+              onClick={handleGoogleSignup}
+              className="w-full py-4 rounded-2xl bg-white border border-gray-200 flex items-center justify-center gap-3 hover:bg-gray-50 transition-colors"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <img src="https://www.google.com/favicon.ico" alt="Google" className="w-6 h-6" />
+              <span className="text-gray-700 font-medium">Sign up with Google</span>
+            </motion.button>
+          </div>
 
           <p className="text-center mt-6 text-sm text-muted-foreground">
             Already have an account?{' '}
